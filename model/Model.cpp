@@ -26,11 +26,15 @@ void Model::report_metric_for_node(Simulator &sim, int node_id,
   RECORD_METRIC(sim, node_id, name, value, tag);
 }
 
-void Model::accept_processing_task(Simulator &sim, Task::PtrTask task) {
-  processing_queue.push(task);
-  if (cpu.is_idle()) {
-    schedule_cpu(sim);
-  }
+bool Model::accept_processing_task(Simulator &sim, Task::PtrTask task) {
+    if (processing_queue.size() < queue_size) {
+        processing_queue.push(task);
+        if (cpu.is_idle()) {
+            schedule_cpu(sim);
+        }
+        return true;
+    }
+    return false;
 }
 
 void Model::OnProcessingStart(Simulator &sim) {
@@ -74,7 +78,7 @@ void Model::OnProcessingComplete(Simulator &sim) {
 
   bool success = (latency <= processing_task->get_deadline());
   report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
-                         "");
+                         tag);
 
   double margin = processing_task->get_deadline() - latency;
   report_metric_for_node(sim, origin_id, "TaskMargin", margin, "");

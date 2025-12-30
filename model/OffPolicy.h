@@ -19,8 +19,7 @@ enum class OffPolicyState { Idle, Busy };
 
 class OffPolicy {
   OffPolicyState current_state = OffPolicyState::Idle;
-  std::string name = "Local";
-public:
+public:  
   using PtrOffPolicy = std::shared_ptr<OffPolicy>;
   virtual DecisionResult decide(Task::PtrTask task, std::vector<RSU::PtrRSU>& rsus);
   virtual double decision_time(Task::PtrTask task);
@@ -28,6 +27,11 @@ public:
   void start() { current_state = OffPolicyState::Busy; }
   bool is_idle() const { return current_state == OffPolicyState::Idle; }
   bool is_busy() const { return current_state == OffPolicyState::Busy; }
+  std::string get_name() const {
+      return name;
+  }
+protected:
+  std::string name = "LocalPolicy";
 };
 
 #endif // OFFPOLICY_H

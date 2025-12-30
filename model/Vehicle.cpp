@@ -4,7 +4,8 @@
 #include <sstream>
 
 Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
-    off_policy = policy;
+    tag = policy->get_name();
+  off_policy = policy;
   events[EventType::OnDecisionStart] = [this](Simulator &sim) {
     this->onDecisionStart(sim);
   };
@@ -49,15 +50,18 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
 
   if (result.decision_type == DecisionType::Local) {
     // Local processing: call Base implementation
-    this->accept_processing_task(sim, decision_task);
+    bool accepted = this->accept_processing_task(sim, decision_task);
+    if (!accepted) report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local");
   } else {
     // Remote processing
     decision_task->set_offloaded(true);
     if (result.choosed_device) {
-      result.choosed_device->accept_processing_task(sim, decision_task);
+      bool accepted = result.choosed_device->accept_processing_task(sim, decision_task);
+      if (!accepted) report_metric_for_node(sim, result.choosed_device->get_id(), "FullQueueError", 1.0, "Remote");
     } else {
       // Fallback if no device chosen? For now Local.
-      this->accept_processing_task(sim, decision_task);
+      bool accepted = this->accept_processing_task(sim, decision_task);
+      if (!accepted) report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local|Fallback");
     }
   }
 

@@ -212,6 +212,49 @@ def plot_deadline_margin_global(df, output_dir):
     plt.savefig(os.path.join(output_dir, 'cdf_deadline_margin_global.png'))
     plt.close()
 
+def plot_queue_overflow_over_time(df, output_dir):
+    """
+    Plota ocorrências de estouro de fila (FullQueueError) ao longo do tempo.
+    """
+    data = df[df['Metric'] == 'FullQueueError'].copy()
+    if data.empty: return
+
+    plt.figure(figsize=(12, 6))
+    
+    # Scatter plot das ocorrências
+    sns.scatterplot(data=data, x='Time', y='EntityID', hue='Tag', style='Tag', s=100, palette='bright')
+    
+    plt.title('Ocorrências de Recusa por Fila Cheia (Overflow) no Tempo')
+    plt.xlabel('Tempo de Simulação (s)')
+    plt.ylabel('ID do Nó (Queue Owner)')
+    plt.legend(title='Contexto')
+    plt.grid(True, which='both', linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'queue_overflow_events.png'))
+    plt.close()
+
+def plot_queue_overflow_count(df, output_dir):
+    """
+    Plota contagem total de estouros de fila por nó.
+    """
+    data = df[df['Metric'] == 'FullQueueError'].copy()
+    if data.empty: return
+
+    plt.figure(figsize=(10, 6))
+    ax = sns.countplot(data=data, x='EntityID', hue='Tag', palette='viridis')
+    
+    plt.title('Total de Recusas por Fila Cheia por Nó')
+    plt.xlabel('ID do Nó')
+    plt.ylabel('Número de Tarefas Recusadas')
+    plt.legend(title='Contexto')
+    
+    for container in ax.containers:
+        ax.bar_label(container)
+        
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'queue_overflow_counts.png'))
+    plt.close()
+
 def main():
     parser = argparse.ArgumentParser(description='Plot Results Per Vehicle (Original Style)')
     parser.add_argument('--input', type=str, default='build/Desktop-Debug/results/experiment_001.csv',
@@ -240,6 +283,8 @@ def main():
         plot_queue_size_cdf_per_vehicle(df, args.output)
         plot_deadline_margin_cdf_per_vehicle(df, args.output)
         plot_deadline_margin_global(df, args.output)
+        plot_queue_overflow_over_time(df, args.output)
+        plot_queue_overflow_count(df, args.output)
         plot_success_rate_per_vehicle(df, args.output)
         plot_offloading_stats_per_vehicle(df, args.output)
         

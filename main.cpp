@@ -13,21 +13,30 @@
 using std::cout, std::endl;
 
 int main() {
-  auto csvCollector =
-      std::make_shared<CSVMetricsCollector>("results/experiment_001.csv");
-  MetricsHub::instance().addListener(csvCollector);
+    std::vector<std::string> results = {
+        "results/experiment_001_local.csv",
+        "results/experiment_001_random.csv"
+    };
+    std::vector<OffPolicy::PtrOffPolicy> policies = {
+        std::make_shared<OffPolicy>(),
+        std::make_shared<RandomPolicy>()
+    };
+    for (size_t i = 0; i < results.size(); ++i) {
+        auto csvCollector =
+          std::make_shared<CSVMetricsCollector>(results[i]);
+        MetricsHub::instance().addListener(csvCollector);
 
-  std::vector<Vehicle::PtrVehicle> vehicles = {
-      std::make_shared<Vehicle>(std::make_shared<RandomPolicy>()),
-      std::make_shared<Vehicle>(std::make_shared<OffPolicy>()),
-  };
-  std::vector<RSU::PtrRSU> rsus = {std::make_shared<RSU>()};
-  Simulator sim;
-  for (auto v : vehicles) {
-    v->set_rsus(rsus);
-    sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v,
-                                      1.0 / Rng::uniform(0.02, 0.1));
-  }
-  sim.run(1000);
+        std::vector<Vehicle::PtrVehicle> vehicles = {
+            std::make_shared<Vehicle>(policies[i]),
+        };
+        std::vector<RSU::PtrRSU> rsus = {std::make_shared<RSU>()};
+        Simulator sim;
+        for (auto v : vehicles) {
+        v->set_rsus(rsus);
+        sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v,
+                                          1.0 / Rng::uniform(0.02, 0.05));
+        }
+        sim.run(500);
+    }
   return 0;
 }

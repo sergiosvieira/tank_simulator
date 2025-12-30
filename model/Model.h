@@ -17,7 +17,8 @@ protected:
   int id = IdManager::next_id();
   std::queue<Task::PtrTask> processing_queue;
   Task::PtrTask processing_task = nullptr;
-
+  size_t queue_size = 3;
+  std::string tag = "";
 public:
   using PtrModel = std::shared_ptr<Model>;
   using Map = std::unordered_map<EventType, std::function<void(Simulator &)>>;
@@ -38,7 +39,7 @@ public:
                               const std::string &tag = "");
 
   // Accepts task for PROCESSING
-  virtual void accept_processing_task(Simulator &sim, Task::PtrTask task);
+  virtual bool accept_processing_task(Simulator &sim, Task::PtrTask task);
 
   void OnProcessingStart(Simulator &sim);
   void OnProcessingComplete(Simulator &sim);
