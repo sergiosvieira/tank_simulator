@@ -76,6 +76,9 @@ void Model::OnProcessingComplete(Simulator &sim) {
   report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
                          "");
 
+  double margin = processing_task->get_deadline() - latency;
+  report_metric_for_node(sim, origin_id, "TaskMargin", margin, "");
+
   bool was_offloaded = processing_task->get_offloaded();
   report_metric_for_node(sim, origin_id, "OffloadingType",
                          was_offloaded ? 1.0 : 0.0,
