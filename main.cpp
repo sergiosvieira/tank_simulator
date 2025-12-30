@@ -111,9 +111,10 @@ public:
 class Task {
     double timestamp = 0;
     int id = IdManager::next_id();
-    long size_bytes = Rng::uniform(80, 300);
-    long density_cycles_bytes = Rng::uniform(1000, 2000);
-    double deadline = Rng::uniform(0.08, 0.1); // ms
+    long size_bytes = Rng::uniform(90, 300);
+    // long density_cycles_bytes = Rng::uniform(200000, 230000);
+    long density_cycles_bytes = Rng::normal(200000, 10000);
+    double deadline = Rng::uniform(0.08, 0.1); // 80ms - 100ms
     bool offloaded = false;
     friend std::ostream& operator<<(std::ostream& out, const Task& t);
 public:
@@ -197,7 +198,7 @@ public:
         return {DecisionType::Local, nullptr};
     }
     virtual double decision_time(Task::PtrTask task) {
-        return Rng::uniform(0.03, 0.05); // 30–50 ms
+        return Rng::uniform(0.003, 0.005); // 30–50 ms
     }
     void complete() {
         current_state = OffPolicyState::Idle;
@@ -415,6 +416,7 @@ public:
     }
     void execute(Simulator& sim) override {
         Task::PtrTask task = std::make_shared<Task>(sim);
+        model->report_metric(sim, "TaskTotalCycles", task->total_cycles());
         std::stringstream ss;
         ss << "Task " << task->get_id()
            << " | Vehicle " << model->get_id()
@@ -433,11 +435,12 @@ int main() {
     MetricsHub::instance().addListener(csvCollector);
     std::vector<Vehicle::PtrVehicle> vehicles = {
         std::make_shared<Vehicle>(),
+        // std::make_shared<Vehicle>(),
         // std::make_shared<Vehicle>()
     };
     Simulator sim;
     for (auto v: vehicles) {
-        sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v, 1.0/Rng::uniform(0.03, 0.08));
+        sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v, 1.0/Rng::uniform(0.02, 0.1));
     }
     sim.run(1000);
     return 0;
