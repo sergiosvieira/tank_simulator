@@ -33,6 +33,9 @@ public:
 
   void report_metric(Simulator &sim, const std::string &name, double value,
                      const std::string &tag = "");
+  void report_metric_for_node(Simulator &sim, int node_id,
+                              const std::string &name, double value,
+                              const std::string &tag = "");
 
   // Accepts task for PROCESSING
   virtual void accept_processing_task(Simulator &sim, Task::PtrTask task);

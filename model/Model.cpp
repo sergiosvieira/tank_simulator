@@ -19,6 +19,13 @@ void Model::report_metric(Simulator &sim, const std::string &name, double value,
   RECORD_METRIC(sim, this->get_id(), name, value, tag);
 }
 
+// Special report function for origin node metrics
+void Model::report_metric_for_node(Simulator &sim, int node_id,
+                                   const std::string &name, double value,
+                                   const std::string &tag) {
+  RECORD_METRIC(sim, node_id, name, value, tag);
+}
+
 void Model::accept_processing_task(Simulator &sim, Task::PtrTask task) {
   processing_queue.push(task);
   if (cpu.is_idle()) {
@@ -54,12 +61,27 @@ void Model::OnProcessingComplete(Simulator &sim) {
   cpu.complete();
 
   double latency = processing_task->spent_time(sim);
-  report_metric(sim, "TaskLatency", latency);
+
+  // Use origin_node_id for success/latency metrics, so the generator gets the
+  // credit/blame
+  int origin_id = processing_task->get_origin_node_id();
+  // If undefined (e.g. -1), fallback to current node (should not happen with
+  // updated event)
+  if (origin_id == -1)
+    origin_id = this->get_id();
+
+  report_metric_for_node(sim, origin_id, "TaskLatency", latency, "");
+
   bool success = (latency <= processing_task->get_deadline());
-  report_metric(sim, "TaskSuccess", success ? 1.0 : 0.0);
+  report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
+                         "");
+
   bool was_offloaded = processing_task->get_offloaded();
-  report_metric(sim, "OffloadingType", was_offloaded ? 1.0 : 0.0,
-                was_offloaded ? "Remote" : "Local");
+  report_metric_for_node(sim, origin_id, "OffloadingType",
+                         was_offloaded ? 1.0 : 0.0,
+                         was_offloaded ? "Remote" : "Local");
+
+  // Energy is consumed by the device doing the work (this node), not the origin
   double energy =
       1e-28 * std::pow(cpu.get_freq(), 2) * processing_task->total_cycles();
   report_metric(sim, "EnergyConsumption", energy);

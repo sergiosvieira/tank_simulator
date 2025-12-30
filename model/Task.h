@@ -10,6 +10,7 @@
 class Task {
   double timestamp = 0;
   int id = IdManager::next_id();
+  int origin_node_id = -1; // Added origin node ID
   long size_bytes = Rng::uniform(90, 300);
   long density_cycles_bytes = Rng::normal(200000, 10000);
   double deadline = Rng::uniform(0.08, 0.1); // 80ms - 100ms
@@ -23,6 +24,8 @@ public:
 
   long total_cycles() const { return size_bytes * density_cycles_bytes; }
   int get_id() const { return id; }
+  void set_origin_node_id(int id) { origin_node_id = id; }
+  int get_origin_node_id() const { return origin_node_id; }
   double get_deadline() const { return deadline; }
   double spent_time(Simulator &sim);
   bool get_offloaded() const { return offloaded; }
