@@ -27,14 +27,14 @@ void Model::report_metric_for_node(Simulator &sim, int node_id,
 }
 
 bool Model::accept_processing_task(Simulator &sim, Task::PtrTask task) {
-    if (processing_queue.size() < queue_size) {
-        processing_queue.push(task);
-        if (cpu.is_idle()) {
-            schedule_cpu(sim);
-        }
-        return true;
+  if (processing_queue.size() < queue_size) {
+    processing_queue.push(task);
+    if (cpu.is_idle()) {
+      schedule_cpu(sim);
     }
-    return false;
+    return true;
+  }
+  return false;
 }
 
 void Model::OnProcessingStart(Simulator &sim) {

@@ -2,46 +2,44 @@
 #include "Model.h"
 
 DecisionResult IntelligentPolicy::decide(Task::PtrTask task, std::vector<RSU::PtrRSU>& rsus) {
-    // 1. Proteção contra Crash (Safety Check)
     if (!host) return {DecisionType::Local, nullptr};
 
-    // --- ANÁLISE DO ESTADO LOCAL (Premissa 1: Sobrevivência do Buffer) ---
     size_t q_curr = host->get_current_queue_size();
-    size_t q_max = host->get_max_queue_size();
 
-    // Regra Crítica: Se a fila tem 2 ou mais itens (limite é 3), OFFLOAD IMEDIATO.
-    // Isso evita o 'FullQueueError' que causou 61% de falha na Local.
-    if (q_curr >= (q_max - 1)) {
-        if (rsus.empty()) return {DecisionType::Local, nullptr}; // Sem opção
+    // 1. Estimativa Realista de Tempo Local (Wait Time + Service Time)
+    // Assumindo que tasks na fila têm tamanho médio similar ou somando seus ciclos se acessível
+    double service_time = task->total_cycles() / host->cpu.get_freq();
 
-        // Seleção Inteligente de RSU (Best-Fit Frequency)
-        // Em vez de aleatório, pega o RSU mais potente para compensar atraso de rede
-        RSU::PtrRSU best_rsu = nullptr;
-        double max_freq = -1.0;
+    // Estima quanto tempo a fila atual vai levar para esvaziar
+    // Se você não tem acesso aos ciclos das tasks na fila, use uma média
+    double wait_time = q_curr * service_time;
 
-        for (auto& rsu : rsus) {
-            if (rsu->cpu.get_freq() > max_freq) {
-                max_freq = rsu->cpu.get_freq();
-                best_rsu = rsu;
-            }
-        }
-        return {DecisionType::Remote, best_rsu};
-    }
+    double total_local_time = wait_time + service_time;
 
-    // --- ESTIMATIVA DE DEADLINE (Premissa 2: Viabilidade de Tempo) ---
-    // T_local = Ciclos / Frequencia_Local
-    double local_proc_time = task->total_cycles() / host->cpu.get_freq();
-
-    // Se não vai dar tempo de processar localmente antes do deadline...
-    if (local_proc_time > task->get_deadline()) {
+    // 2. Decisão Baseada em Deadline (Agora considerando a espera)
+    // Adicionamos uma margem de segurança (ex: 10%)
+    if (total_local_time > (task->get_deadline() * 0.90)) {
         if (!rsus.empty()) {
-            // Tenta salvar a tarefa mandando para fora
-            return {DecisionType::Remote, rsus[0]};
+            // Lógica Best-Fit (Reutilizada para ambos os casos)
+            RSU::PtrRSU best_rsu = nullptr;
+            double max_freq = -1.0;
+            for (auto& rsu : rsus) {
+                if (rsu->cpu.get_freq() > max_freq) {
+                    max_freq = rsu->cpu.get_freq();
+                    best_rsu = rsu;
+                }
+            }
+            return {DecisionType::Remote, best_rsu};
         }
     }
 
-    // --- CONSERVAÇÃO DE ENERGIA (Premissa 3: Custo Mínimo) ---
-    // Se o buffer está seguro e temos tempo, ficamos LOCAL para economizar energia de Tx.
+    // 3. Balanceamento de Carga Preventivo (Load Balancing)
+    // Não espere a fila encher. Se tiver mais de 1 item, considere offload se tiver RSU livre.
+    // Isso melhora a latência média (Gráfico B)
+    if (q_curr > 1 && !rsus.empty()) {
+        return {DecisionType::Remote, rsus[0]}; // Ou Random, ou Best-Fit
+    }
+
     return {DecisionType::Local, nullptr};
 }
 

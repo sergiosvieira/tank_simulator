@@ -11,6 +11,7 @@ void TaskGenerationEvent::execute(Simulator &sim) {
   std::stringstream ss;
   ss << "Task " << task->get_id() << " | Node " << model->get_id()
      << " | TASK_GENERATED"
+     << " | lambda=" << lambda
      << " | deadline=" << task->get_deadline();
   LOG_INFO(sim.now(), ss.str());
 

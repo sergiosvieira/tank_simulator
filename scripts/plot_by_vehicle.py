@@ -24,7 +24,7 @@ def load_data(filepath):
     if not os.path.exists(filepath):
         print(f"Erro: Arquivo não encontrado em {filepath}")
         return None
-    return pd.read_csv(filepath)
+    return pd.read_csv(filepath, engine='python')
 
 def plot_latency_cdf_per_vehicle(df, output_dir):
     """
@@ -273,10 +273,7 @@ def main():
     if df is not None:
         print("Gerando gráficos detalhados por veículo (Estilo Original)...")
         
-        # Otimização (from original script)
-        df['Metric'] = df['Metric'].astype('category')
-        if 'Tag' in df.columns:
-            df['Tag'] = df['Tag'].astype('category')
+        # Removed category optimization due to numpy compatibility issues
 
         plot_latency_cdf_per_vehicle(df, args.output)
         plot_queue_dynamics_per_vehicle(df, args.output)

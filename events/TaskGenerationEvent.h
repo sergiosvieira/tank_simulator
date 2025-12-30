@@ -4,13 +4,15 @@
 #include "../core/Event.h"
 #include "../model/Vehicle.h"
 
+static constexpr double Lambda = 1.0 / 0.01;
+
 class TaskGenerationEvent : public Event {
   Vehicle::PtrVehicle model = nullptr;
-  double lambda = 0.0;
+  double lambda = Lambda;
 
 public:
   TaskGenerationEvent(double t, Vehicle::PtrVehicle model_,
-                      double lambda_ = 2.0)
+                      double lambda_ = Lambda)
       : Event(t), model(model_), lambda(lambda_) {}
   void execute(Simulator &sim) override;
 };
