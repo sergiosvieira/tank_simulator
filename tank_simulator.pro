@@ -10,6 +10,7 @@ SOURCES += \
     core/Simulator.cpp \
     events/TaskGenerationEvent.cpp \
     model/CPU.cpp \
+    model/IntelligentPolicy.cpp \
     model/Model.cpp \
     model/OffPolicy.cpp \
     model/RandomPolicy.cpp \
@@ -26,6 +27,7 @@ HEADERS += \
     events/TaskGenerationEvent.h \
     model/CPU.h \
     model/EventType.h \
+    model/IntelligentPolicy.h \
     model/Model.h \
     model/OffPolicy.h \
     model/RSU.h \

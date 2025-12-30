@@ -6,6 +6,7 @@
 #include "model/Vehicle.h"
 #include "utils/Rng.h"
 #include "model/RandomPolicy.h"
+#include "model/IntelligentPolicy.h"
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -15,11 +16,13 @@ using std::cout, std::endl;
 int main() {
     std::vector<std::string> results = {
         "results/experiment_001_local.csv",
-        "results/experiment_001_random.csv"
+        "results/experiment_001_random.csv",
+        "results/experiment_001_intelligent.csv"
     };
     std::vector<OffPolicy::PtrOffPolicy> policies = {
         std::make_shared<OffPolicy>(),
-        std::make_shared<RandomPolicy>()
+        std::make_shared<RandomPolicy>(),
+        std::make_shared<IntelligentPolicy>()
     };
     for (size_t i = 0; i < results.size(); ++i) {
         auto csvCollector =

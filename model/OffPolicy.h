@@ -30,8 +30,10 @@ public:
   std::string get_name() const {
       return name;
   }
+  virtual void set_host(Model::PtrModel host_) { host = host_; }
 protected:
   std::string name = "LocalPolicy";
+  Model::PtrModel host = nullptr;
 };
 
 #endif // OFFPOLICY_H

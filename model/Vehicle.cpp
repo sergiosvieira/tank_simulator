@@ -6,6 +6,7 @@
 Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
     tag = policy->get_name();
   off_policy = policy;
+    off_policy->set_host(shared_from_this());
   events[EventType::OnDecisionStart] = [this](Simulator &sim) {
     this->onDecisionStart(sim);
   };

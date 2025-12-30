@@ -31,7 +31,10 @@ public:
   Model();
 
   int get_id() const { return id; }
+  size_t get_current_queue_size() const { return processing_queue.size(); }
+  size_t get_max_queue_size() const { return queue_size; }
 
+  // ... restante da classe
   void report_metric(Simulator &sim, const std::string &name, double value,
                      const std::string &tag = "");
   void report_metric_for_node(Simulator &sim, int node_id,
