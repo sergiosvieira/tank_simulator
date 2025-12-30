@@ -15,6 +15,7 @@ tank_simulator
 build/
 release/
 debug/
+results/
 
 # Makefiles
 Makefile*

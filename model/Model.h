@@ -1,6 +1,7 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include "Battery.h"
 #include "CPU.h"
 #include "EventType.h"
 #include "Task.h"
@@ -19,11 +20,13 @@ protected:
   Task::PtrTask processing_task = nullptr;
   size_t queue_size = 3;
   std::string tag = "";
+
 public:
   using PtrModel = std::shared_ptr<Model>;
   using Map = std::unordered_map<EventType, std::function<void(Simulator &)>>;
 
   CPU cpu;
+  Battery battery; // Default infinite/zero
   Map events;
 
   virtual ~Model() = default;

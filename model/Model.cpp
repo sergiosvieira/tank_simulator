@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "../core/EnergyManager.h"
 #include "../events/CPUEvent.h"
 #include "../logger.h"
 #include "../metric.h"
@@ -63,39 +64,42 @@ void Model::OnProcessingComplete(Simulator &sim) {
              : "No");
   LOG_INFO(sim.now(), ss.str());
   cpu.complete();
+  double energy = EnergyManager::calculate_processing_energy(
+      cpu.get_freq(), processing_task->total_cycles());
+  int origin_id = processing_task->get_origin_node_id();
+  if (origin_id == -1) origin_id = this->get_id();
+  if (battery.predict_energy_consumption(energy) < 0.0) {
+      report_metric_for_node(sim, origin_id, "TaskSuccess", 0.0, tag);
+      report_metric(sim, "LowEnergyFail", 1.0, tag);
+    return;
+  }
 
   double latency = processing_task->spent_time(sim);
-
-  // Use origin_node_id for success/latency metrics, so the generator gets the
-  // credit/blame
-  int origin_id = processing_task->get_origin_node_id();
-  // If undefined (e.g. -1), fallback to current node (should not happen with
-  // updated event)
-  if (origin_id == -1)
-    origin_id = this->get_id();
-
   report_metric_for_node(sim, origin_id, "TaskLatency", latency, "");
-
   bool success = (latency <= processing_task->get_deadline());
-  report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
-                         tag);
-
+  report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0, tag);
   double margin = processing_task->get_deadline() - latency;
-  report_metric_for_node(sim, origin_id, "TaskMargin", margin, "");
+  report_metric_for_node(sim, origin_id, "TaskMargin", margin, tag);
 
   bool was_offloaded = processing_task->get_offloaded();
   report_metric_for_node(sim, origin_id, "OffloadingType",
                          was_offloaded ? 1.0 : 0.0,
-                         was_offloaded ? "Remote" : "Local");
+                         was_offloaded ? "Remote | " + tag : "Local | " + tag);
+  battery.consume(energy);
 
-  // Energy is consumed by the device doing the work (this node), not the origin
-  double energy =
-      1e-28 * std::pow(cpu.get_freq(), 2) * processing_task->total_cycles();
-  report_metric(sim, "EnergyConsumption", energy);
+  report_metric(sim, "EnergyConsumption", energy, tag);
+  report_metric(sim, "BatteryRemaining", battery.get_remaining(), tag);
+
+  if (battery.is_depleted()) {
+    report_metric(sim, "BatteryDepleted", 1.0, tag);
+  }
 
   processing_task = nullptr;
   if (!processing_queue.empty()) {
-    schedule_cpu_start_event(sim);
+    // Check battery before scheduling next?
+    if (!battery.is_depleted()) {
+      schedule_cpu_start_event(sim);
+    }
   }
 }
 

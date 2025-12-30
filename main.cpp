@@ -40,7 +40,7 @@ int main() {
       v->set_rsus(rsus);
       sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v, Lambda);
     }
-    sim.run(500);
+    sim.run(100);
   }
   return 0;
 }
