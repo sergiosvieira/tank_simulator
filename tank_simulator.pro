@@ -12,6 +12,7 @@ SOURCES += \
     model/CPU.cpp \
     model/Model.cpp \
     model/OffPolicy.cpp \
+    model/RandomPolicy.cpp \
     model/Task.cpp \
     model/Vehicle.cpp
 
@@ -28,6 +29,7 @@ HEADERS += \
     model/Model.h \
     model/OffPolicy.h \
     model/RSU.h \
+    model/RandomPolicy.h \
     model/Task.h \
     model/Vehicle.h \
     utils/IdManager.h \

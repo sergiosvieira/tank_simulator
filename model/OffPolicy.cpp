@@ -1,6 +1,8 @@
 #include "OffPolicy.h"
+#include "model/RSU.h"
 
-DecisionResult OffPolicy::decide(Task::PtrTask task) {
+DecisionResult OffPolicy::decide(Task::PtrTask task,
+    std::vector<RSU::PtrRSU>& rsus) {
   return {DecisionType::Local, nullptr};
 }
 

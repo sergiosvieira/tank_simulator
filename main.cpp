@@ -5,6 +5,7 @@
 #include "model/RSU.h"
 #include "model/Vehicle.h"
 #include "utils/Rng.h"
+#include "model/RandomPolicy.h"
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -15,14 +16,15 @@ int main() {
   auto csvCollector =
       std::make_shared<CSVMetricsCollector>("results/experiment_001.csv");
   MetricsHub::instance().addListener(csvCollector);
+
   std::vector<Vehicle::PtrVehicle> vehicles = {
-      std::make_shared<Vehicle>(),
-      // std::make_shared<Vehicle>(),
-      // std::make_shared<Vehicle>()
+      std::make_shared<Vehicle>(std::make_shared<RandomPolicy>()),
+      std::make_shared<Vehicle>(std::make_shared<OffPolicy>()),
   };
   std::vector<RSU::PtrRSU> rsus = {std::make_shared<RSU>()};
   Simulator sim;
   for (auto v : vehicles) {
+    v->set_rsus(rsus);
     sim.schedule<TaskGenerationEvent>(Rng::uniform(0.0, 0.01), v,
                                       1.0 / Rng::uniform(0.02, 0.1));
   }

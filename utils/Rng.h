@@ -2,6 +2,7 @@
 #define RNG_H
 
 #include <random>
+#include <stdexcept>
 
 struct Rng {
   static constexpr int seed = 1978;
@@ -28,6 +29,16 @@ struct Rng {
   static int uniform_int(int a, int b) {
     std::uniform_int_distribution<int> d(a, b);
     return d(engine());
+  }
+
+  template <typename T>
+  static T sample(const std::vector<T>& vec) {
+      if (vec.empty()) {
+          throw std::runtime_error("Rng::sample: Attempted to sample from an empty vector.");
+      }
+      // Usa size_t para garantir compatibilidade com o tamanho máximo do vetor
+      std::uniform_int_distribution<size_t> d(0, vec.size() - 1);
+      return vec[d(engine())];
   }
 };
 

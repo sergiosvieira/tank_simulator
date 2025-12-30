@@ -10,6 +10,9 @@ class RSU : public Model {
 
 public:
   using PtrRSU = std::shared_ptr<RSU>;
+  RSU(): Model() {
+    cpu.set_freq(Rng::uniform(4e9, 5e9));
+  }
   // RSU receives tasks via accept_processing_task (from Model)
 };
 

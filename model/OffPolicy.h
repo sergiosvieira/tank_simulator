@@ -3,6 +3,7 @@
 
 #include "Task.h"
 #include "utils/Rng.h"
+#include "model/RSU.h"
 #include <memory>
 
 class Model; // Forward declaration
@@ -18,10 +19,10 @@ enum class OffPolicyState { Idle, Busy };
 
 class OffPolicy {
   OffPolicyState current_state = OffPolicyState::Idle;
-
+  std::string name = "Local";
 public:
   using PtrOffPolicy = std::shared_ptr<OffPolicy>;
-  virtual DecisionResult decide(Task::PtrTask task);
+  virtual DecisionResult decide(Task::PtrTask task, std::vector<RSU::PtrRSU>& rsus);
   virtual double decision_time(Task::PtrTask task);
   void complete() { current_state = OffPolicyState::Idle; }
   void start() { current_state = OffPolicyState::Busy; }

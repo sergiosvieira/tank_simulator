@@ -3,7 +3,8 @@
 #include "../logger.h"
 #include <sstream>
 
-Vehicle::Vehicle() : Model() {
+Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
+    off_policy = policy;
   events[EventType::OnDecisionStart] = [this](Simulator &sim) {
     this->onDecisionStart(sim);
   };
@@ -14,17 +15,17 @@ Vehicle::Vehicle() : Model() {
 
 void Vehicle::add_task_to_decision(Simulator &sim, Task::PtrTask task) {
   decision_queue.push(task);
-  if (off_policy.is_idle()) {
+  if (off_policy->is_idle()) {
     schedule_decision_start_event(sim);
   }
 }
 
 void Vehicle::onDecisionStart(Simulator &sim) {
-  if (off_policy.is_idle() && !decision_queue.empty()) {
+  if (off_policy->is_idle() && !decision_queue.empty()) {
     report_metric(sim, "QueueSize_Decision", (double)decision_queue.size());
     decision_task = decision_queue.front();
     decision_queue.pop();
-    off_policy.start();
+    off_policy->start();
     std::stringstream ss;
     ss << "Task " << decision_task->get_id() << " | Node " << this->get_id()
        << " | DECISION_START"
@@ -39,11 +40,12 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
   std::stringstream ss;
   ss << "Task " << decision_task->get_id() << " | Node " << this->get_id()
      << " | DECISION_COMPLETE";
-  auto result = off_policy.decide(decision_task);
+  auto result = off_policy->decide(decision_task, rsus);
   ss << " | decision="
-     << (result.decision_type == DecisionType::Local ? "Local" : "Remote");
+     << (result.decision_type == DecisionType::Local ? "Local" : "Remote")
+     << " | destiny=Node " << (result.choosed_device != nullptr ? result.choosed_device->get_id() : get_id());
   LOG_INFO(sim.now(), ss.str());
-  off_policy.complete();
+  off_policy->complete();
 
   if (result.decision_type == DecisionType::Local) {
     // Local processing: call Base implementation
@@ -67,7 +69,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
 
 void Vehicle::schedule_decision(Simulator &sim) {
   sim.schedule<DecisionEvent>(
-      sim.now() + off_policy.decision_time(decision_task),
+      sim.now() + off_policy->decision_time(decision_task),
       std::static_pointer_cast<Vehicle>(shared_from_this()),
       EventType::OnDecisionComplete);
 }
