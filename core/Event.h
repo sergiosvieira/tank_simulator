@@ -7,8 +7,8 @@
 class Simulator;
 
 class Event {
+protected:
   double time = 0.0;
-
 public:
   using PtrEvent = std::shared_ptr<Event>;
   using VecPtrEvent = std::vector<PtrEvent>;

@@ -38,11 +38,16 @@ public:
   size_t get_max_queue_size() const { return queue_size; }
 
   // ... restante da classe
+  // Report metric with location tracking
   void report_metric(Simulator &sim, const std::string &name, double value,
-                     const std::string &tag = "");
+                     const std::string &tag = "", int task_id = -1,
+                     const char *file = __builtin_FILE(),
+                     int line = __builtin_LINE());
   void report_metric_for_node(Simulator &sim, int node_id,
                               const std::string &name, double value,
-                              const std::string &tag = "");
+                              const std::string &tag = "", int task_id = -1,
+                              const char *file = __builtin_FILE(),
+                              int line = __builtin_LINE());
 
   // Accepts task for PROCESSING
   virtual bool accept_processing_task(Simulator &sim, Task::PtrTask task);

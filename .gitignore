@@ -37,3 +37,7 @@ logs/
 
 # Temporary
 tmp/
+
+# Tools binaries
+tools/log_aggregator
+*.png

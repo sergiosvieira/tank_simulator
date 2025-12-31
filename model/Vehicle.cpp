@@ -1,13 +1,12 @@
 #include "Vehicle.h"
 #include "../events/DecisionEvent.h"
 #include "../logger.h"
+#include "core/EnergyManager.h"
 #include <sstream>
 
 Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
   tag = policy->get_name();
   off_policy = policy;
-  // off_policy->set_host(shared_from_this()); // THIS IS THE BUG! Cannot call
-  // shared_from_this in constructor!
   events[EventType::OnDecisionStart] = [this](Simulator &sim) {
     this->onDecisionStart(sim);
   };
@@ -49,7 +48,8 @@ void Vehicle::onDecisionStart(Simulator &sim) {
 
 void Vehicle::onDecisionComplete(Simulator &sim) {
   std::stringstream ss;
-  ss << "Task " << decision_task->get_id() << " | Node " << this->get_id()
+  int tid = decision_task->get_id();
+  ss << "Task " << tid << " | Node " << this->get_id()
      << " | DECISION_COMPLETE";
   auto result = off_policy->decide(decision_task, rsus);
   ss << " | decision="
@@ -64,22 +64,30 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
     // Local processing: call Base implementation
     bool accepted = this->accept_processing_task(sim, decision_task);
     if (!accepted)
-      report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local");
+      report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local",
+                             tid);
   } else {
     // Remote processing
     decision_task->set_offloaded(true);
     if (result.choosed_device) {
       bool accepted =
           result.choosed_device->accept_processing_task(sim, decision_task);
-      if (!accepted)
+      if (!accepted) {
         report_metric_for_node(sim, result.choosed_device->get_id(),
-                               "FullQueueError", 1.0, "Remote");
+                               "FullQueueError", 1.0, "Remote", tid);
+      } else {
+        double tx_energy = EnergyManager::calculate_transmission_energy(
+            decision_task->get_data_size(), 100.0); // 100m dist
+        this->battery.consume(tx_energy);
+        report_metric(sim, "EnergyConsumption", tx_energy, "TxOnly", tid);
+        report_metric(sim, "TxEnergy", tx_energy, tag, tid);
+      }
     } else {
       // Fallback if no device chosen? For now Local.
       bool accepted = this->accept_processing_task(sim, decision_task);
       if (!accepted)
         report_metric_for_node(sim, get_id(), "FullQueueError", 1.0,
-                               "Local|Fallback");
+                               "Local | Fallback", tid);
     }
   }
 

@@ -7,6 +7,7 @@ void Simulator::schedule(Event::PtrEvent event) {
 }
 
 void Simulator::run(double sim_end_time) {
+    end_time = sim_end_time;
   while (!fel.empty()) {
     Event::PtrEvent event = fel.top();
     fel.pop();

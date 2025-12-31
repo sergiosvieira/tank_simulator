@@ -16,15 +16,19 @@ Model::Model() {
 }
 
 void Model::report_metric(Simulator &sim, const std::string &name, double value,
-                          const std::string &tag) {
-  RECORD_METRIC(sim, this->get_id(), name, value, tag);
+                          const std::string &tag, int task_id, const char *file,
+                          int line) {
+  MetricsHub::instance().record(sim.now(), get_id(), name, value, tag, task_id,
+                                file, line);
 }
 
 // Special report function for origin node metrics
 void Model::report_metric_for_node(Simulator &sim, int node_id,
                                    const std::string &name, double value,
-                                   const std::string &tag) {
-  RECORD_METRIC(sim, node_id, name, value, tag);
+                                   const std::string &tag, int task_id,
+                                   const char *file, int line) {
+  MetricsHub::instance().record(sim.now(), node_id, name, value, tag, task_id,
+                                file, line);
 }
 
 bool Model::accept_processing_task(Simulator &sim, Task::PtrTask task) {
@@ -67,31 +71,38 @@ void Model::OnProcessingComplete(Simulator &sim) {
   double energy = EnergyManager::calculate_processing_energy(
       cpu.get_freq(), processing_task->total_cycles());
   int origin_id = processing_task->get_origin_node_id();
-  if (origin_id == -1) origin_id = this->get_id();
+  if (origin_id == -1)
+    origin_id = this->get_id();
+  bool was_offloaded = processing_task->get_offloaded();
+  int tid = processing_task->get_id();
+
   if (battery.predict_energy_consumption(energy) < 0.0) {
-      report_metric_for_node(sim, origin_id, "TaskSuccess", 0.0, tag);
-      report_metric(sim, "LowEnergyFail", 1.0, tag);
+    report_metric_for_node(sim, origin_id, "TaskSuccess", 0.0, tag, tid);
+    report_metric(sim, "LowEnergyFail", 1.0, tag, tid);
+    report_metric_for_node(
+        sim, origin_id, "OffloadingType", was_offloaded ? 1.0 : 0.0,
+        was_offloaded ? "Remote | " + tag : "Local | " + tag, tid);
     return;
   }
-
   double latency = processing_task->spent_time(sim);
-  report_metric_for_node(sim, origin_id, "TaskLatency", latency, "");
+  report_metric_for_node(sim, origin_id, "TaskLatency", latency, "", tid);
   bool success = (latency <= processing_task->get_deadline());
-  report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0, tag);
+  report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
+                         tag, tid);
   double margin = processing_task->get_deadline() - latency;
-  report_metric_for_node(sim, origin_id, "TaskMargin", margin, tag);
+  report_metric_for_node(sim, origin_id, "TaskMargin", margin, tag, tid);
 
-  bool was_offloaded = processing_task->get_offloaded();
-  report_metric_for_node(sim, origin_id, "OffloadingType",
-                         was_offloaded ? 1.0 : 0.0,
-                         was_offloaded ? "Remote | " + tag : "Local | " + tag);
+  report_metric_for_node(
+      sim, origin_id, "OffloadingType", was_offloaded ? 1.0 : 0.0,
+      was_offloaded ? "Remote | " + tag : "Local | " + tag, tid);
   battery.consume(energy);
 
-  report_metric(sim, "EnergyConsumption", energy, tag);
-  report_metric(sim, "BatteryRemaining", battery.get_remaining(), tag);
+  report_metric(sim, "EnergyConsumption", energy, "CpuOnly", tid);
+  report_metric(sim, "CpuEnergy", energy, tag, tid);
+  report_metric(sim, "BatteryRemaining", battery.get_remaining(), tag, tid);
 
   if (battery.is_depleted()) {
-    report_metric(sim, "BatteryDepleted", 1.0, tag);
+    report_metric(sim, "BatteryDepleted", 1.0, tag, tid);
   }
 
   processing_task = nullptr;

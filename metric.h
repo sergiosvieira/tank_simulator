@@ -17,6 +17,9 @@ struct MetricRecord {
   double value;
   // Opcional: Tags extras (ex: "Local", "Offload")
   std::string tag;
+  int task_id;
+  std::string file;
+  int line;
 };
 
 // Interface do Listener (O "Contrato")
@@ -37,7 +40,7 @@ class CSVMetricsCollector : public IMetricListener {
 public:
   CSVMetricsCollector(const std::string &fname) : filename(fname) {
     std::ofstream file(filename, std::ios::out | std::ios::trunc);
-    file << "Time,EntityID,Metric,Value,Tag\n"; // Header CSV
+    file << "Time,EntityID,Metric,Value,Tag,TaskID,Location\n"; // Header CSV
   }
 
   ~CSVMetricsCollector() { flush(); }
@@ -56,7 +59,8 @@ public:
     std::ofstream file(filename, std::ios::out | std::ios::app);
     for (const auto &rec : buffer) {
       file << rec.time << "," << rec.entity_id << "," << rec.metric_name << ","
-           << rec.value << "," << rec.tag << "\n";
+           << rec.value << "," << rec.tag << "," << rec.task_id << ","
+           << rec.file << ":" << rec.line << "\n";
     }
     buffer.clear();
   }
@@ -79,16 +83,24 @@ public:
   void clearListeners() { listeners.clear(); }
 
   void record(double time, int entity_id, const std::string &name, double value,
-              const std::string &tag = "") {
-    MetricRecord rec{time, entity_id, name, value, tag};
+              const std::string &tag, int task_id, const std::string &file,
+              int line) {
+    MetricRecord rec{time, entity_id, name, value, tag, task_id, file, line};
     for (auto &l : listeners) {
       l->onMetricRecorded(rec);
     }
   }
+
+  void record(double time, int entity_id, const std::string &name, double value,
+              const std::string &tag, const std::string &file, int line) {
+    record(time, entity_id, name, value, tag, -1, file, line);
+  }
 };
 
 // Macro para facilitar o uso no código (S syntactic sugar)
-#define RECORD_METRIC(sim, entity_id, name, val, tag)                          \
-  MetricsHub::instance().record(sim.now(), entity_id, name, val, tag)
+#define RECORD_METRIC(sim, entity_id, name, val, tag, ...)                     \
+  MetricsHub::instance().record(sim.now(), entity_id, name, val, tag,          \
+                                ##__VA_ARGS__, __builtin_FILE(),               \
+                                __builtin_LINE())
 
 #endif // METRIC_H

@@ -15,14 +15,17 @@ SOURCES += \
     model/Model.cpp \
     model/OffPolicy.cpp \
     model/RandomPolicy.cpp \
+    events/SpecifiedTasksEvent.cpp \
     model/Task.cpp \
-    model/Vehicle.cpp
+    model/Vehicle.cpp \
 
 HEADERS += \
+    events/SpecifiedTasksEvent.h \
     logger.h \
     metric.h \
     core/Event.h \
     core/Simulator.h \
+    core/EnergyManager.h \
     events/CPUEvent.h \
     events/DecisionEvent.h \
     events/TaskGenerationEvent.h \
@@ -36,5 +39,6 @@ HEADERS += \
     model/RandomPolicy.h \
     model/Task.h \
     model/Vehicle.h \
+    model/Battery.h \
     utils/IdManager.h \
     utils/Rng.h

@@ -13,7 +13,7 @@ class Simulator {
   std::priority_queue<Event::PtrEvent, Event::VecPtrEvent, EventPtrComparator>
       fel;
   double current_time = 0.0;
-
+  double end_time = 0.0;
 public:
   double now() const { return current_time; }
 
@@ -25,6 +25,9 @@ public:
   }
 
   void run(double sim_end_time);
+  double get_end_time() const {
+      return end_time;
+  }
 };
 
 #endif // SIMULATOR_H

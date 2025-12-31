@@ -21,7 +21,10 @@ public:
   using PtrTask = std::shared_ptr<Task>;
 
   Task(const Simulator &sim);
-
+  Task(double timestamp_, long size_bytes_, long density_cycles_bytes_,
+       double deadline_)
+      : timestamp(timestamp_), size_bytes(size_bytes_),
+        density_cycles_bytes(density_cycles_bytes_), deadline(deadline_){};
   long total_cycles() const { return size_bytes * density_cycles_bytes; }
   int get_id() const { return id; }
   void set_origin_node_id(int id) { origin_node_id = id; }
@@ -30,6 +33,9 @@ public:
   double spent_time(Simulator &sim);
   bool get_offloaded() const { return offloaded; }
   void set_offloaded(bool val) { offloaded = val; }
+  long get_data_size() const { return size_bytes; }
+  long get_cycles() const { return density_cycles_bytes; }
+  double get_timestamp() const { return timestamp; }
 };
 
 std::ostream &operator<<(std::ostream &out, const Task &t);
