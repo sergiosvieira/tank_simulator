@@ -5,13 +5,14 @@
 #include "CPU.h"
 #include "EventType.h"
 #include "Task.h"
-#include "core/Simulator.h"
 #include "utils/IdManager.h"
 #include <functional>
 #include <memory>
 #include <queue>
 #include <string>
 #include <unordered_map>
+
+class Simulator; // Forward declaration
 
 class Model : public std::enable_shared_from_this<Model> {
 protected:
@@ -59,6 +60,10 @@ protected:
   virtual void schedule_cpu(Simulator &sim);
   virtual void schedule_processing_complete(Simulator &sim);
   virtual void schedule_cpu_start_event(Simulator &sim);
+
+public:
+  double last_energy_update = 0.0;
+  void update_energy(Simulator &sim);
 };
 
 #endif // MODEL_H

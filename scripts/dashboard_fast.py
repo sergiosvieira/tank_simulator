@@ -11,7 +11,7 @@ POLICIES_CONFIG = {
     "FirstRemote": {"color": "#34495E", "label": "First Remote"}
 }
 
-sns.set(style="whitegrid", context="paper", font_scale=1.2)
+sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
 plt.rcParams['hatch.linewidth'] = 0.5
 
 def load_aggregated_data():
@@ -149,8 +149,8 @@ def plot_dashboard_fast(df_sum, df_ts):
     if ax.get_legend(): ax.get_legend().remove()
 
     plt.suptitle("Fast Dashboard (C++ Pre-processed)", fontsize=20, y=0.98)
-    plt.savefig("FINAL_DASHBOARD_FAST.png", dpi=300, bbox_inches='tight')
-    print("Grafico salvo: FINAL_DASHBOARD_FAST.png")
+    plt.savefig("FINAL_DASHBOARD_FAST.pdf", dpi=300, bbox_inches='tight')
+    print("Grafico salvo: FINAL_DASHBOARD_FAST.pdf")
 
 if __name__ == "__main__":
     s, t = load_aggregated_data()

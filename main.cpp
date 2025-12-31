@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 
   cout << "Running experiment with Policy: " << policy_name
        << " | Duration: " << duration << " | Seed: " << seed << endl;
-
+  Simulator sim;
   auto policy = create_policy(policy_name);
   std::string result_file = get_result_filename(policy_name, seed);
   cout << "Results will be saved to: " << result_file << endl;
@@ -79,11 +79,16 @@ int main(int argc, char **argv) {
       std::make_shared<Vehicle>(policy),
   };
   std::vector<RSU::PtrRSU> rsus = {std::make_shared<RSU>()};
-  Simulator sim;
+  for (auto r : rsus) {
+    r->battery = Battery(10000.0); // Set 10kJ battery
+    r->report_metric(sim, "BatteryRemaining", r->battery.get_remaining());
+  }
+
 
   for (auto v : vehicles) {
     v->set_rsus(rsus);
     v->battery = Battery(10000.0); // Set 10kJ battery
+    v->report_metric(sim, "BatteryRemaining", v->battery.get_remaining());
     sim.schedule<TaskGenerationEvent>(1.0, v, Lambda);
   }
 

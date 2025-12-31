@@ -15,8 +15,8 @@ public:
   // Placeholder for future transmission energy logic
   static double calculate_transmission_energy(double size_bytes,
                                               double distance) {
-    // Simple linear model example: 100mW base + distance factor
-    return 0.1 * size_bytes / 1e6;
+    // Linear model: 5.0 Joules per MB (High Tx power for long range)
+    return 5.0 * size_bytes / 1e6;
   }
 };
 

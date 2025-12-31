@@ -4,7 +4,7 @@
 #include "../core/Event.h"
 #include "../model/Vehicle.h"
 
-static constexpr double Lambda = 1.0 / 0.02;
+static constexpr double Lambda = 1.0 / 0.08;
 
 class TaskGenerationEvent : public Event {
   Vehicle::PtrVehicle model = nullptr;

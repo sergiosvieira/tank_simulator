@@ -3,7 +3,7 @@
 # Configuration
 POLICIES=("Local" "Random" "Intelligent" "FirstRemote")
 DURATION=500
-REPEATS=33
+REPEATS=5
 BASE_SEED=1978
 
 # Create results directory if it doesn't exist

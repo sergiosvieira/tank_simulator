@@ -10,10 +10,10 @@
 class Task {
   double timestamp = 0;
   int id = IdManager::next_id();
-  int origin_node_id = -1; // Added origin node ID
-  long size_bytes = Rng::uniform(90, 300);
-  long density_cycles_bytes = Rng::normal(290000, 10000);
-  double deadline = Rng::uniform(0.08, 0.1); // 80ms - 100ms
+  int origin_node_id = -1;                            // Added origin node ID
+  long size_bytes = Rng::uniform(100000, 300000);     // 100KB - 300KB
+  long density_cycles_bytes = Rng::normal(1000, 100); // 1000 cycles/byte
+  double deadline = Rng::uniform(0.4, 0.5);           // 100ms - 200ms
   bool offloaded = false;
   friend std::ostream &operator<<(std::ostream &out, const Task &t);
 

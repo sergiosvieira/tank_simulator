@@ -15,9 +15,26 @@ Model::Model() {
   };
 }
 
+void Model::update_energy(Simulator &sim) {
+  double now = sim.now();
+  if (last_energy_update <= 0.0001)
+    last_energy_update = now; // Init
+  double delta = now - last_energy_update;
+  if (delta > 0) {
+    double idle_power = 2.0; // 2 Watts
+    double energy = idle_power * delta;
+    battery.consume(energy);
+    // We don't report metric here to avoid recursion or log flood
+    last_energy_update = now;
+  }
+}
+
 void Model::report_metric(Simulator &sim, const std::string &name, double value,
                           const std::string &tag, int task_id, const char *file,
                           int line) {
+  if (name != "BatteryRemaining")
+    update_energy(sim);
+
   MetricsHub::instance().record(sim.now(), get_id(), name, value, tag, task_id,
                                 file, line);
 }
@@ -27,6 +44,9 @@ void Model::report_metric_for_node(Simulator &sim, int node_id,
                                    const std::string &name, double value,
                                    const std::string &tag, int task_id,
                                    const char *file, int line) {
+  if (node_id == get_id() && name != "BatteryRemaining")
+    update_energy(sim);
+
   MetricsHub::instance().record(sim.now(), node_id, name, value, tag, task_id,
                                 file, line);
 }
