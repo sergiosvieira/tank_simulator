@@ -7,7 +7,7 @@ enum class CPUState { Idle, Busy };
 
 class CPU {
   CPUState current_state = CPUState::Idle;
-  double freq_mhz = 1.0 * 1e9;
+  double freq_mhz = 1.18 * 1e9;
 
 public:
   virtual double processing_time(Task::PtrTask task);
