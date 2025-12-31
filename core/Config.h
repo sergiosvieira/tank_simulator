@@ -15,15 +15,15 @@ inline double CHAOS_INTENSITY = 1.0; // default: no amplification
 
 inline void set_chaos_mode() {
   FIELD_TOTAL_CHAOS = true;
-  CHAOS_INTENSITY = 2.5; // moderate chaos (was 2.5, reduced for stability)
+  CHAOS_INTENSITY = 1.5; // moderate chaos (was 2.5, reduced for stability)
 }
 
 // --------------------------------------------------
 // Traffic Generation
 // --------------------------------------------------
 // Lambda = Arrival Rate (tasks per second)
-// 1 task every 0.08s => 12.5 tasks/s
-inline double TRAFFIC_LAMBDA = 1.0 / 0.08;
+// 1 task every 0.4s => 2.5 tasks/s
+inline double TRAFFIC_LAMBDA = 1.0 / 0.4;
 
 // --------------------------------------------------
 // Task Characteristics

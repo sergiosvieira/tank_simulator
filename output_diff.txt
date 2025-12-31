@@ -1,254 +1,753 @@
+commit 57961a250b1635e08413a3fec22cdce499c16c62
+Author: Sérgio Vieira <sergiosvieira@gmail.com>
+Date:   Wed Dec 31 17:37:20 2025 -0300
+
+    feat: Implement Global Chaos State with AR(1) process
+    
+    - Created ChaosManager singleton (core/ChaosManager.h) implementing
+      temporally correlated chaos using AR(1) process: z_t = ρ*z_{t-1} + σ*ε_t
+    
+    - Refactored all pdrift calls to use shared global chaos state:
+      * Task.cpp: Updates chaos ONCE per task, applies same drift to all params
+      * CPU.cpp, RandomPolicy.cpp, FirstRemotePolicy.cpp, OffPolicy.cpp,
+        IntelligentPolicy.cpp: Use ChaosManager for decision time drift
+      * EnergyManager.h: Use ChaosManager for energy calculation drift
+      * TaskGenerationEvent.cpp: Use ChaosManager for inter-arrival drift
+    
+    - Removed old ChaosState and update_chaos from Rng.h (now in ChaosManager)
+    - Added ChaosManager seed initialization in main.cpp for reproducibility
+    - Created documentation in docs/GLOBAL_CHAOS.md
+    
+    Key improvement: All parameters now share structural correlation - when
+    the scenario is 'bad' (high z_t), everything degrades simultaneously.
+    This is physically correct and models real system behavior under stress.
+
 diff --git a/FINAL_DASHBOARD_FAST.pdf b/FINAL_DASHBOARD_FAST.pdf
-index b6be82c..70856b0 100644
+index d9461da..643122b 100644
 Binary files a/FINAL_DASHBOARD_FAST.pdf and b/FINAL_DASHBOARD_FAST.pdf differ
-diff --git a/core/Config.h b/core/Config.h
-index afddc5c..6a5c73b 100644
---- a/core/Config.h
-+++ b/core/Config.h
-@@ -1,31 +1,44 @@
--#ifndef CONFIG_H
--#define CONFIG_H
+diff --git a/core/ChaosManager.h b/core/ChaosManager.h
+new file mode 100644
+index 0000000..026fab7
+--- /dev/null
++++ b/core/ChaosManager.h
+@@ -0,0 +1,93 @@
 +#pragma once
- 
- namespace Config {
- 
--// --- Traffic Generation ---
-+// --------------------------------------------------
-+// Chaos Mode
-+// --------------------------------------------------
-+inline bool FIELD_TOTAL_CHAOS = false;
 +
-+inline double REF_ARRIVAL_MAX_MEAN = 1.0 / 0.01;
-+inline double REF_SIZE_SPAN = 1000000.0;
-+inline double REF_DENSITY_STD_MAX = 1000.0;
-+inline double REF_DEADLINE_SPAN = 10.0;
++/**
++ * @brief Global Chaos State Manager
++ *
++ * Models environmental uncertainty as a latent global chaos state shared across
++ * all task and network parameters, evolving as a temporally correlated
++ * stochastic process.
++ *
++ * Mathematical Model (AR(1) Process):
++ *   z_t = ρ * z_{t-1} + σ * ε_t
++ *
++ * Where:
++ *   - ρ ∈ (0,1) = memory/persistence coefficient (default: 0.9)
++ *   - σ = chaos intensity (from Config::CHAOS_INTENSITY)
++ *   - ε_t ~ U(-1, 1) = uniform noise
++ *   - z_t = chaos state at time t
++ *
++ * Properties:
++ *   ✔️ Temporal correlation (memory)
++ *   ✔️ Mean zero (long-term)
++ *   ✔️ Bounded variance
++ *   ✔️ Shared across ALL parameters (structural correlation)
++ */
 +
-+inline void set_chaos_mode() {
-+  FIELD_TOTAL_CHAOS = true;
++#include "Config.h"
++#include <algorithm>
++#include <random>
 +
-+  // Expand normalization bounds to avoid saturation
-+  REF_ARRIVAL_MAX_MEAN = 1.0 / 0.001; // 1000s
-+  REF_SIZE_SPAN = 5000000.0;          // 5 MB
-+  REF_DENSITY_STD_MAX = 5000.0;       // extreme variance
-+  REF_DEADLINE_SPAN = 20.0;           // 20s
-+}
++class ChaosManager {
++public:
++  // AR(1) persistence coefficient (0 < ρ < 1)
++  // Higher = more temporal correlation (more "sticky" chaos)
++  static constexpr double RHO = 0.9;
 +
-+// --------------------------------------------------
-+// Traffic Generation
-+// --------------------------------------------------
- // Lambda = Arrival Rate (tasks per second)
- // 1 task every 0.08s => 12.5 tasks/s
--static constexpr double TRAFFIC_LAMBDA = 1.0 / 0.08;
-+inline double TRAFFIC_LAMBDA = 1.0 / 0.08;
- 
--// --- Task Characteristics ---
--static constexpr long TASK_MIN_SIZE = 100000; // 100 KB
--static constexpr long TASK_MAX_SIZE = 300000; // 300 KB
-+// --------------------------------------------------
-+// Task Characteristics
-+// --------------------------------------------------
-+inline long TASK_MIN_SIZE = 100000;
-+inline long TASK_MAX_SIZE = 300000;
- 
--static constexpr long TASK_MEAN_DENSITY = 1000; // 1000 cycles/byte
--static constexpr long TASK_STD_DENSITY = 100;   // 100 cycles/byte
-+inline long TASK_MEAN_DENSITY = 1000;
-+inline long TASK_STD_DENSITY = 100;
- 
--static constexpr double TASK_MIN_DEADLINE = 0.4; // 400 ms
--static constexpr double TASK_MAX_DEADLINE = 0.5; // 500 ms
--
--// --- Uncertainty Reference Bounds (Normalization Factors) ---
--// Used for entropy calculation relative to a "maximum expected" design space
--static constexpr double REF_ARRIVAL_MAX_MEAN =
--    1.0 / 0.01; // Max Mean Inter-arrival: 100s
--static constexpr double REF_SIZE_SPAN = 1000000.0;    // 1 MB range
--static constexpr double REF_DENSITY_STD_MAX = 1000.0; // High variance
--static constexpr double REF_DEADLINE_SPAN = 10.0;     // 10s range
-+inline double TASK_MIN_DEADLINE = 0.4;
-+inline double TASK_MAX_DEADLINE = 0.5;
- 
- } // namespace Config
--
--#endif // CONFIG_H
-diff --git a/events/TaskGenerationEvent.cpp b/events/TaskGenerationEvent.cpp
-index b29f99b..5a54ce6 100644
---- a/events/TaskGenerationEvent.cpp
-+++ b/events/TaskGenerationEvent.cpp
-@@ -4,6 +4,21 @@
- #include "../utils/Rng.h"
- #include <sstream>
- 
-+void TaskGenerationEvent::schedule_next(Simulator &sim) {
-+  double lambda = Config::TRAFFIC_LAMBDA;
++  // Chaos state z_t ∈ ℝ
++  double z = 0.0;
 +
-+  // Non-stationary arrivals in chaos mode
-+  if (Config::FIELD_TOTAL_CHAOS) {
-+    lambda = Rng::uniform(0.1 * Config::TRAFFIC_LAMBDA,
-+                          5.0 * Config::TRAFFIC_LAMBDA);
++  /**
++   * @brief Update the chaos state (call this at each event or fixed Δt)
++   *
++   * Implements: z_t = ρ * z_{t-1} + σ * ε_t
++   * where ε_t ~ U(-1, 1)
++   */
++  void update() {
++    std::uniform_real_distribution<double> noise_dist(-1.0, 1.0);
++    double epsilon = noise_dist(chaos_engine_);
++    z = RHO * z + Config::CHAOS_INTENSITY * epsilon;
 +  }
 +
-+  double inter_arrival = Rng::exponential(lambda);
++  /**
++   * @brief Apply chaos drift to a base value
++   *
++   * Formula: result = max(base * (1 + z), ε)
++   * Ensures positive values with minimum epsilon.
++   *
++   * @param base The original parameter value
++   * @return The perturbed value
++   */
++  double apply_drift(double base) const {
++    static constexpr double EPSILON = 1e-6;
++    return std::max(base * (1.0 + z), EPSILON);
++  }
 +
-+  sim.schedule(std::make_shared<TaskGenerationEvent>(sim.now() + inter_arrival,
-+                                                     model, lambda));
++  /**
++   * @brief Get the current chaos state value
++   * @return Current chaos intensity z_t
++   */
++  double get_state() const { return z; }
++
++  /**
++   * @brief Reset chaos state to zero
++   */
++  void reset() { z = 0.0; }
++
++  /**
++   * @brief Seed the internal chaos RNG for reproducibility
++   * @param seed The random seed
++   */
++  void seed(int s) { chaos_engine_.seed(s); }
++
++  // Singleton access
++  static ChaosManager &instance() {
++    static ChaosManager manager;
++    return manager;
++  }
++
++private:
++  ChaosManager() : chaos_engine_(42) {}
++
++  // Internal RNG engine (separate from main simulation RNG)
++  std::mt19937 chaos_engine_;
++};
+diff --git a/core/Config.h b/core/Config.h
+index 3aafddd..8d82944 100644
+--- a/core/Config.h
++++ b/core/Config.h
+@@ -5,6 +5,7 @@ namespace Config {
+ // --------------------------------------------------
+ // Chaos Mode
+ // --------------------------------------------------
++
+ inline bool FIELD_TOTAL_CHAOS = false;
+ 
+ // --------------------------------------------------
+@@ -14,7 +15,7 @@ inline double CHAOS_INTENSITY = 1.0; // default: no amplification
+ 
+ inline void set_chaos_mode() {
+   FIELD_TOTAL_CHAOS = true;
+-  CHAOS_INTENSITY = 0.2; // moderate chaos (was 2.5, reduced for stability)
++  CHAOS_INTENSITY = 2.5; // moderate chaos (was 2.5, reduced for stability)
+ }
+ 
+ // --------------------------------------------------
+diff --git a/core/EnergyManager.h b/core/EnergyManager.h
+index 0afd5f6..4f12bf8 100644
+--- a/core/EnergyManager.h
++++ b/core/EnergyManager.h
+@@ -1,6 +1,9 @@
+ #ifndef ENERGYMANAGER_H
+ #define ENERGYMANAGER_H
+ 
++#include "../utils/Rng.h"
++#include "ChaosManager.h"
++#include "Config.h"
+ #include <cmath>
+ 
+ class EnergyManager {
+@@ -9,14 +12,24 @@ public:
+   static constexpr double K = 1e-28; // Effective switched capacitance
+ 
+   static double calculate_processing_energy(double frequency, long cycles) {
+-    return K * std::pow(frequency, 2) * cycles;
++    double result = K * std::pow(frequency, 2) * cycles;
++    if (Config::FIELD_TOTAL_CHAOS) {
++      double drift = ChaosManager::instance().get_state();
++      return Rng::pdrift(result, drift);
++    }
++    return result;
+   }
+ 
+   // Placeholder for future transmission energy logic
+   static double calculate_transmission_energy(double size_bytes,
+                                               double distance) {
+     // Linear model: 5.0 Joules per MB (High Tx power for long range)
+-    return 5.0 * size_bytes / 1e6;
++    double result = 5.0 * size_bytes / 1e6;
++    if (Config::FIELD_TOTAL_CHAOS) {
++      double drift = ChaosManager::instance().get_state();
++      return Rng::pdrift(result, drift);
++    }
++    return result;
+   }
+ };
+ 
+diff --git a/docs/GLOBAL_CHAOS.md b/docs/GLOBAL_CHAOS.md
+new file mode 100644
+index 0000000..6476255
+--- /dev/null
++++ b/docs/GLOBAL_CHAOS.md
+@@ -0,0 +1,113 @@
++# Global Chaos Implementation - Documentação
++
++## Descrição
++
++Este documento descreve a implementação do **Global Chaos State** no simulador, seguindo o modelo matemático de um processo AR(1) para representar incerteza ambiental temporalmente correlacionada.
++
++## Problema Anterior
++
++O código anterior tinha as seguintes falhas:
++
++1. **Cada variável chamando RNG independentemente**: `pdrift(size)`, `pdrift(density)`, `pdrift(deadline)` - cada um com seu próprio ruído
++2. **Sem correlação estrutural**: Os parâmetros eram tratados como se fossem independentes
++3. **Ruído branco, não caos**: Sem memória temporal entre chamadas
++
++```cpp
++// ❌ ANTES (errado):
++double min_s = Rng::pdrift(Config::TASK_MIN_SIZE);  // RNG próprio
++double max_s = Rng::pdrift(Config::TASK_MAX_SIZE);  // RNG próprio diferente
++```
++
++## Solução Implementada
++
++### 1. ChaosManager (Singleton)
++
++Novo arquivo `core/ChaosManager.h` que implementa:
++
++```cpp
++class ChaosManager {
++    // Processo AR(1): z_t = ρ * z_{t-1} + σ * ε_t
++    static constexpr double RHO = 0.9;  // Memória
++    double z = 0.0;  // Estado de caos
++    
++    void update();           // Atualiza o estado
++    double apply_drift(double base);  // Aplica drift ao parâmetro
++    double get_state();      // Retorna z_t atual
++};
++```
++
++### 2. Uso Correto do Drift
++
++Agora todas as variáveis compartilham o **mesmo estado de caos** no mesmo instante:
++
++```cpp
++// ✅ DEPOIS (correto):
++if (Config::FIELD_TOTAL_CHAOS) {
++    ChaosManager::instance().update();  // Atualiza UMA VEZ
 +}
 +
- void TaskGenerationEvent::execute(Simulator &sim) {
-   Task::PtrTask task = std::make_shared<Task>(sim);
-   task->set_origin_node_id(model->get_id()); // Set origin
-@@ -11,13 +26,11 @@ void TaskGenerationEvent::execute(Simulator &sim) {
-   std::stringstream ss;
-   ss << "Task " << task->get_id() << " | Node " << model->get_id()
++double drift = ChaosManager::instance().get_state();  // MESMO drift para todos
++
++double min_s = Rng::pdrift(Config::TASK_MIN_SIZE, drift);
++double max_s = Rng::pdrift(Config::TASK_MAX_SIZE, drift);
++double min_d = Rng::pdrift(Config::TASK_MIN_DEADLINE, drift);
++double max_d = Rng::pdrift(Config::TASK_MAX_DEADLINE, drift);
++```
++
++## Arquivos Modificados
++
++| Arquivo | Mudança |
++|---------|---------|
++| `core/ChaosManager.h` | **NOVO** - Implementa o gerenciador de caos global |
++| `core/Config.h` | Removido include circular de Rng.h |
++| `utils/Rng.h` | Removido ChaosState e update_chaos (movidos para ChaosManager) |
++| `model/Task.cpp` | Usa ChaosManager para drift correlacionado |
++| `model/CPU.cpp` | Usa ChaosManager para drift de processing time |
++| `model/RandomPolicy.cpp` | Usa ChaosManager para drift de decision time |
++| `model/FirstRemotePolicy.cpp` | Usa ChaosManager para drift de decision time |
++| `model/OffPolicy.cpp` | Usa ChaosManager para drift de decision time |
++| `model/IntelligentPolicy.cpp` | Usa ChaosManager para drift de decision time |
++| `core/EnergyManager.h` | Usa ChaosManager para drift de energia |
++| `events/TaskGenerationEvent.cpp` | Usa ChaosManager para drift de inter-arrival |
++| `main.cpp` | Inicializa ChaosManager com seed |
++
++## Modelo Matemático
++
++### Processo AR(1)
++$$z_t = \rho z_{t-1} + \sigma \varepsilon_t$$
++
++Onde:
++- $\rho = 0.9$ → memória/persistência
++- $\sigma$ = `Config::CHAOS_INTENSITY` (default: 2.5)
++- $\varepsilon_t \sim \mathcal{U}(-1, 1)$
++
++### Função de Drift
++$$\text{value}' = \max(\text{value} \times (1 + z_t), \epsilon)$$
++
++## Propriedades do Novo Sistema
++
++✅ **Correlação temporal**: O caos de hoje depende do caos de ontem
++✅ **Correlação estrutural**: Todos os parâmetros compartilham o mesmo caos
++✅ **Controlável**: Intensidade ajustável via `CHAOS_INTENSITY`
++✅ **Reproduzível**: Seed do ChaosManager sincronizado com seed global
++
++## Uso
++
++```bash
++# Sem caos (modo estacionário)
++./tank_simulator Local 100 1978
++
++# Com caos (modo não-estacionário)
++./tank_simulator Local 100 1978 --chaos
++```
++
++## Definição Formal (para artigo)
++
++> *We model environmental uncertainty as a latent global chaos state shared across all task and network parameters, evolving as a temporally correlated stochastic process.*
++
++## Próximos Passos
++
++1. Adicionar logging do estado de caos `z_t` ao longo do tempo
++2. Implementar eventos de shock (picos raros de alta intensidade)
++3. Medir Lyapunov exponent discreto para caracterização formal
++4. Integrar com RL como estado oculto do ambiente
+diff --git a/events/TaskGenerationEvent.cpp b/events/TaskGenerationEvent.cpp
+index ea74815..4bc4912 100644
+--- a/events/TaskGenerationEvent.cpp
++++ b/events/TaskGenerationEvent.cpp
+@@ -1,4 +1,5 @@
+ #include "TaskGenerationEvent.h"
++#include "../core/ChaosManager.h"
+ #include "../logger.h"
+ #include "../model/Task.h"
+ #include "../utils/Rng.h"
+@@ -13,44 +14,19 @@ void TaskGenerationEvent::execute(Simulator &sim) {
       << " | TASK_GENERATED"
--     << " | lambda=" << lambda
--     << " | deadline=" << task->get_deadline();
-+     << " | lambda=" << lambda << " | deadline=" << task->get_deadline();
+      << " | lambda=" << lambda << " | deadline=" << task->get_deadline();
    LOG_INFO(sim.now(), ss.str());
- 
+-
    // Push to decision queue
    model->add_task_to_decision(sim, task);
  
--  double next_gen_event = Rng::exponential(lambda);
--  sim.schedule<TaskGenerationEvent>(sim.now() + next_gen_event, model, lambda);
-+  schedule_next(sim);
- }
-diff --git a/events/TaskGenerationEvent.h b/events/TaskGenerationEvent.h
-index 33dfc82..98887cf 100644
---- a/events/TaskGenerationEvent.h
-+++ b/events/TaskGenerationEvent.h
-@@ -14,6 +14,7 @@ public:
-                       double lambda_ = Config::TRAFFIC_LAMBDA)
-       : Event(t), model(model_), lambda(lambda_) {}
-   void execute(Simulator &sim) override;
-+  void schedule_next(Simulator &sim);
- };
+-  // Non-stationary arrivals in chaos mode
+-  if (Config::FIELD_TOTAL_CHAOS) {
+-    static double last_lambda = Config::TRAFFIC_LAMBDA;
+-
+-    // Regime switching (aggressive)
+-    double multiplier = Rng::uniform(0.5, 2.0);
+-    lambda = last_lambda * multiplier;
+-
+-    // Rare burst shock (5% probability)
+-    if (Rng::uniform(0.0, 1.0) < 0.05) {
+-      lambda *= 5.0; // burst amplification (reduced from 10x for stability)
+-    }
+-
+-    // Clamp to avoid numerical explosion (reduced from 50x for stability)
+-    double max_lambda = 30.0 * Config::TRAFFIC_LAMBDA; // ~375 tasks/s max
+-    if (lambda > max_lambda)
+-      lambda = max_lambda;
+-    if (lambda < 1.0)
+-      lambda = 1.0;
+-
+-    last_lambda = lambda;
+-  }
+-
++  // Calculate inter-arrival time
+   double inter_arrival = Rng::exponential(lambda);
  
- #endif // TASKGENERATIONEVENT_H
+-  // CRITICAL: Enforce minimum inter-arrival time to prevent double precision
+-  // issues when current_time is large (e.g., 170.17575691181059 + 1e-16 = same
+-  // value) This prevents temporal causality violations (scheduling events in
+-  // the past)
+-  constexpr double MIN_INTER_ARRIVAL = 1e-9; // 1 nanosecond
+-  if (inter_arrival < MIN_INTER_ARRIVAL) {
+-    inter_arrival = MIN_INTER_ARRIVAL;
++  // Non-stationary arrivals in chaos mode
++  if (Config::FIELD_TOTAL_CHAOS) {
++    double drift = ChaosManager::instance().get_state();
++    inter_arrival = Rng::pdrift(inter_arrival, drift);
+   }
+ 
+-  sim.schedule(std::make_shared<TaskGenerationEvent>(sim.now() + inter_arrival,
+-                                                     model, lambda));
++  double next_event = sim.now() + inter_arrival;
++  sim.schedule(
++      std::make_shared<TaskGenerationEvent>(next_event, model, lambda));
+ }
 diff --git a/main.cpp b/main.cpp
-index 7819df6..33ebe36 100644
+index 9ed09ea..8084ea9 100644
 --- a/main.cpp
 +++ b/main.cpp
-@@ -105,12 +105,27 @@ int main(int argc, char **argv) {
-   if (argc > 3)
-     seed = std::stoi(argv[3]);
+@@ -6,7 +6,8 @@
+ #define M_E 2.71828182845904523536
+ #endif
  
-+  // ---------------------------------------------
-+  // Chaos Mode Flag
-+  // ---------------------------------------------
-+  for (int i = 1; i < argc; ++i) {
-+    std::string arg = argv[i];
-+    if (arg == "--chaos") {
-+      Config::set_chaos_mode();
-+      std::cout << "!!! CHAOS MODE ACTIVATED !!!" << std::endl;
-+    }
-+  }
-+
-   // Set Global Seed
+-#include "core/Config.h" // Added Config
++#include "core/ChaosManager.h" // Added ChaosManager
++#include "core/Config.h"       // Added Config
+ #include "core/Simulator.h"
+ #include "events/SpecifiedTasksEvent.h"
+ #include "events/TaskGenerationEvent.h"
+@@ -144,8 +145,9 @@ int main(int argc, char **argv) {
+     positional_index++;
+   }
+ 
+-  // Set Global Seed
++  // Set Global Seed (both main RNG and ChaosManager for reproducibility)
    Rng::engine().seed(seed);
++  ChaosManager::instance().seed(seed);
  
    cout << "Running experiment with Policy: " << policy_name
         << " | Duration: " << duration << " | Seed: " << seed << endl;
+diff --git a/model/CPU.cpp b/model/CPU.cpp
+index 3e92724..cf49fcb 100644
+--- a/model/CPU.cpp
++++ b/model/CPU.cpp
+@@ -1,5 +1,11 @@
+ #include "CPU.h"
++#include "../core/ChaosManager.h"
  
+ double CPU::processing_time(Task::PtrTask task) {
+-  return task->total_cycles() / freq_mhz;
++  double result = task->total_cycles() / freq_mhz;
 +  if (Config::FIELD_TOTAL_CHAOS) {
-+    std::cout << "Mode: NON-STATIONARY / ADVERSARIAL SCENARIO" << std::endl;
++    double drift = ChaosManager::instance().get_state();
++    return Rng::pdrift(result, drift);
 +  }
-+
-   calculate_scenario_entropy();
++  return result;
+ }
+diff --git a/model/FirstRemotePolicy.cpp b/model/FirstRemotePolicy.cpp
+index 4ed623c..0e4bc48 100644
+--- a/model/FirstRemotePolicy.cpp
++++ b/model/FirstRemotePolicy.cpp
+@@ -1,16 +1,23 @@
+ #include "FirstRemotePolicy.h"
++#include "../core/ChaosManager.h"
+ #include "Model.h"
  
-   Simulator sim;
+ DecisionResult FirstRemotePolicy::decide(Task::PtrTask task,
+-                                    std::vector<RSU::PtrRSU>& rsus) {
+-    DecisionType dt = DecisionType::Local;
+-    RSU::PtrRSU dst = nullptr;
+-    if (rsus.size() == 0) return {dt, dst};
+-    dt = DecisionType::Remote;
+-    dst = rsus[0];
++                                         std::vector<RSU::PtrRSU> &rsus) {
++  DecisionType dt = DecisionType::Local;
++  RSU::PtrRSU dst = nullptr;
++  if (rsus.size() == 0)
+     return {dt, dst};
++  dt = DecisionType::Remote;
++  dst = rsus[0];
++  return {dt, dst};
+ }
+ 
+ double FirstRemotePolicy::decision_time(Task::PtrTask task) {
+-    return Rng::uniform(0.003, 0.005); // 30–50ms
++  double result = Rng::uniform(0.003, 0.005); // 3–5ms
++  if (Config::FIELD_TOTAL_CHAOS) {
++    double drift = ChaosManager::instance().get_state();
++    return Rng::pdrift(result, drift);
++  }
++  return result;
+ }
+diff --git a/model/IntelligentPolicy.cpp b/model/IntelligentPolicy.cpp
+index c5d4305..b0097f1 100644
+--- a/model/IntelligentPolicy.cpp
++++ b/model/IntelligentPolicy.cpp
+@@ -1,49 +1,58 @@
+ #include "IntelligentPolicy.h"
++#include "../core/ChaosManager.h"
+ #include "Model.h"
+ 
+-DecisionResult IntelligentPolicy::decide(Task::PtrTask task, std::vector<RSU::PtrRSU>& rsus) {
+-    if (!host) return {DecisionType::Local, nullptr};
+-
+-    size_t q_curr = host->get_current_queue_size();
+-
+-    // 1. Estimativa Realista de Tempo Local (Wait Time + Service Time)
+-    // Assumindo que tasks na fila têm tamanho médio similar ou somando seus ciclos se acessível
+-    double service_time = task->total_cycles() / host->cpu.get_freq();
+-
+-    // Estima quanto tempo a fila atual vai levar para esvaziar
+-    // Se você não tem acesso aos ciclos das tasks na fila, use uma média
+-    double wait_time = q_curr * service_time;
+-
+-    double total_local_time = wait_time + service_time;
+-
+-    // 2. Decisão Baseada em Deadline (Agora considerando a espera)
+-    // Adicionamos uma margem de segurança (ex: 10%)
+-    if (total_local_time > (task->get_deadline() * 0.90)) {
+-        if (!rsus.empty()) {
+-            // Lógica Best-Fit (Reutilizada para ambos os casos)
+-            RSU::PtrRSU best_rsu = nullptr;
+-            double max_freq = -1.0;
+-            for (auto& rsu : rsus) {
+-                if (rsu->cpu.get_freq() > max_freq) {
+-                    max_freq = rsu->cpu.get_freq();
+-                    best_rsu = rsu;
+-                }
+-            }
+-            return {DecisionType::Remote, best_rsu};
++DecisionResult IntelligentPolicy::decide(Task::PtrTask task,
++                                         std::vector<RSU::PtrRSU> &rsus) {
++  if (!host)
++    return {DecisionType::Local, nullptr};
++
++  size_t q_curr = host->get_current_queue_size();
++
++  // 1. Estimativa Realista de Tempo Local (Wait Time + Service Time)
++  // Assumindo que tasks na fila têm tamanho médio similar ou somando seus
++  // ciclos se acessível
++  double service_time = task->total_cycles() / host->cpu.get_freq();
++
++  // Estima quanto tempo a fila atual vai levar para esvaziar
++  // Se você não tem acesso aos ciclos das tasks na fila, use uma média
++  double wait_time = q_curr * service_time;
++
++  double total_local_time = wait_time + service_time;
++
++  // 2. Decisão Baseada em Deadline (Agora considerando a espera)
++  // Adicionamos uma margem de segurança (ex: 10%)
++  if (total_local_time > (task->get_deadline() * 0.90)) {
++    if (!rsus.empty()) {
++      // Lógica Best-Fit (Reutilizada para ambos os casos)
++      RSU::PtrRSU best_rsu = nullptr;
++      double max_freq = -1.0;
++      for (auto &rsu : rsus) {
++        if (rsu->cpu.get_freq() > max_freq) {
++          max_freq = rsu->cpu.get_freq();
++          best_rsu = rsu;
+         }
++      }
++      return {DecisionType::Remote, best_rsu};
+     }
++  }
+ 
+-    // 3. Balanceamento de Carga Preventivo (Load Balancing)
+-    // Não espere a fila encher. Se tiver mais de 1 item, considere offload se tiver RSU livre.
+-    // Isso melhora a latência média (Gráfico B)
+-    if (q_curr > 1 && !rsus.empty()) {
+-        return {DecisionType::Remote, rsus[0]}; // Ou Random, ou Best-Fit
+-    }
++  // 3. Balanceamento de Carga Preventivo (Load Balancing)
++  // Não espere a fila encher. Se tiver mais de 1 item, considere offload se
++  // tiver RSU livre. Isso melhora a latência média (Gráfico B)
++  if (q_curr > 1 && !rsus.empty()) {
++    return {DecisionType::Remote, rsus[0]}; // Ou Random, ou Best-Fit
++  }
+ 
+-    return {DecisionType::Local, nullptr};
++  return {DecisionType::Local, nullptr};
+ }
+ 
+ double IntelligentPolicy::decision_time(Task::PtrTask task) {
+-    // Custo ligeiramente maior que Random pois faz cálculos (1ms a mais simulado)
+-    return Rng::uniform(0.004, 0.006);
++  // Custo ligeiramente maior que Random pois faz cálculos (1ms a mais simulado)
++  double result = Rng::uniform(0.004, 0.006); // 4–6ms
++  if (Config::FIELD_TOTAL_CHAOS) {
++    double drift = ChaosManager::instance().get_state();
++    return Rng::pdrift(result, drift);
++  }
++  return result;
+ }
+diff --git a/model/Model.h b/model/Model.h
+index 09955fb..5ffc1ba 100644
+--- a/model/Model.h
++++ b/model/Model.h
+@@ -19,7 +19,7 @@ protected:
+   int id = IdManager::next_id();
+   std::queue<Task::PtrTask> processing_queue;
+   Task::PtrTask processing_task = nullptr;
+-  size_t queue_size = 3;
++  size_t queue_size = 10;
+   std::string tag = "";
+ 
+ public:
+diff --git a/model/OffPolicy.cpp b/model/OffPolicy.cpp
+index c16a15e..3e5298c 100644
+--- a/model/OffPolicy.cpp
++++ b/model/OffPolicy.cpp
+@@ -1,11 +1,17 @@
+ #include "OffPolicy.h"
++#include "../core/ChaosManager.h"
+ #include "model/RSU.h"
+ 
+ DecisionResult OffPolicy::decide(Task::PtrTask task,
+-    std::vector<RSU::PtrRSU>& rsus) {
++                                 std::vector<RSU::PtrRSU> &rsus) {
+   return {DecisionType::Local, nullptr};
+ }
+ 
+ double OffPolicy::decision_time(Task::PtrTask task) {
+-  return Rng::uniform(0.003, 0.005); // 30–50 ms
++  double result = Rng::uniform(0.003, 0.005); // 3–5 ms
++  if (Config::FIELD_TOTAL_CHAOS) {
++    double drift = ChaosManager::instance().get_state();
++    return Rng::pdrift(result, drift);
++  }
++  return result;
+ }
+diff --git a/model/RandomPolicy.cpp b/model/RandomPolicy.cpp
+index 3df2e3a..8f98f6f 100644
+--- a/model/RandomPolicy.cpp
++++ b/model/RandomPolicy.cpp
+@@ -1,18 +1,25 @@
+ #include "RandomPolicy.h"
++#include "../core/ChaosManager.h"
+ #include "Model.h"
+ 
+ DecisionResult RandomPolicy::decide(Task::PtrTask task,
+-    std::vector<RSU::PtrRSU>& rsus) {
+-    DecisionType dt = DecisionType::Local;
+-    RSU::PtrRSU dst = nullptr;
+-    if (rsus.size() == 0) return {dt, dst};
+-    if (Rng::uniform(0.0, 1.0) >= 0.5) {
+-        dt = DecisionType::Remote;
+-        dst = Rng::sample<RSU::PtrRSU>(rsus);
+-    }
++                                    std::vector<RSU::PtrRSU> &rsus) {
++  DecisionType dt = DecisionType::Local;
++  RSU::PtrRSU dst = nullptr;
++  if (rsus.size() == 0)
+     return {dt, dst};
++  if (Rng::uniform(0.0, 1.0) >= 0.5) {
++    dt = DecisionType::Remote;
++    dst = Rng::sample<RSU::PtrRSU>(rsus);
++  }
++  return {dt, dst};
+ }
+ 
+ double RandomPolicy::decision_time(Task::PtrTask task) {
+-    return Rng::uniform(0.003, 0.005); // 30–50ms
++  double result = Rng::uniform(0.003, 0.005); // 3–5 ms
++  if (Config::FIELD_TOTAL_CHAOS) {
++    double drift = ChaosManager::instance().get_state();
++    return Rng::pdrift(result, drift);
++  }
++  return result;
+ }
 diff --git a/model/Task.cpp b/model/Task.cpp
-index 80f57ee..bd9070e 100644
+index 71ca6dd..df96549 100644
 --- a/model/Task.cpp
 +++ b/model/Task.cpp
-@@ -1,6 +1,43 @@
+@@ -1,34 +1,61 @@
  #include "Task.h"
++#include "../core/ChaosManager.h"
  
--Task::Task(const Simulator &sim) { timestamp = sim.now(); }
-+Task::Task(const Simulator &sim) {
-+  timestamp = sim.now();
-+
-+  // --------------------------------------------------
-+  // Task Size (Regime Switching)
-+  // --------------------------------------------------
-+  if (Config::FIELD_TOTAL_CHAOS && Rng::uniform(0.0, 1.0) < 0.3) {
-+    size_bytes = Rng::uniform(500000, 2000000); // heavy burst
-+  } else {
-+    size_bytes = Rng::uniform(Config::TASK_MIN_SIZE, Config::TASK_MAX_SIZE);
+ Task::Task(const Simulator &sim) {
+   timestamp = sim.now();
+ 
+   // --------------------------------------------------
+-  // Task Size (Regime Switching)
++  // Update Global Chaos State ONCE per task
++  // This ensures all parameters share the SAME chaos value
+   // --------------------------------------------------
+-  if (Config::FIELD_TOTAL_CHAOS && Rng::uniform(0.0, 1.0) < 0.15) {
+-    // Reduced burst: 15% chance, max 600KB (was 30% chance, max 2MB)
+-    size_bytes = Rng::uniform(300000, 600000);
++  if (Config::FIELD_TOTAL_CHAOS) {
++    ChaosManager::instance().update();
 +  }
 +
++  // Get the shared chaos state for this task
++  double drift =
++      Config::FIELD_TOTAL_CHAOS ? ChaosManager::instance().get_state() : 0.0;
++
 +  // --------------------------------------------------
-+  // Density (High variance)
++  // Task Size (Drifted in chaos mode)
 +  // --------------------------------------------------
 +  if (Config::FIELD_TOTAL_CHAOS) {
-+    density_cycles_bytes =
-+        Rng::normal(Config::TASK_MEAN_DENSITY, 3.0 * Config::TASK_STD_DENSITY);
-+  } else {
-+    density_cycles_bytes =
-+        Rng::normal(Config::TASK_MEAN_DENSITY, Config::TASK_STD_DENSITY);
-+  }
-+
-+  // --------------------------------------------------
-+  // Deadline (Adversarial correlation)
-+  // --------------------------------------------------
++    double min_s = Rng::pdrift(Config::TASK_MIN_SIZE, drift);
++    double max_s = Rng::pdrift(Config::TASK_MAX_SIZE, drift);
++    if (min_s > max_s) {
++      std::swap(min_s, max_s);
++    }
++    size_bytes = Rng::uniform(min_s, max_s);
+   } else {
+     size_bytes = Rng::uniform(Config::TASK_MIN_SIZE, Config::TASK_MAX_SIZE);
+   }
+ 
+   // --------------------------------------------------
+-  // Density (High variance)
++  // Density (Drifted in chaos mode)
+   // --------------------------------------------------
+   if (Config::FIELD_TOTAL_CHAOS) {
+-    // Reduced variance: 2x instead of 3x
+-    density_cycles_bytes =
+-        Rng::normal(Config::TASK_MEAN_DENSITY, 2.0 * Config::TASK_STD_DENSITY);
++    double mean = Rng::pdrift(Config::TASK_MEAN_DENSITY, drift);
++    double std = Rng::pdrift(Config::TASK_STD_DENSITY, drift);
++    density_cycles_bytes = Rng::normal(mean, std);
+   } else {
+     density_cycles_bytes =
+         Rng::normal(Config::TASK_MEAN_DENSITY, Config::TASK_STD_DENSITY);
+   }
+ 
+   // --------------------------------------------------
+-  // Deadline (Uniform distribution)
++  // Deadline (Drifted in chaos mode)
+   // --------------------------------------------------
+-  deadline = Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
 +  if (Config::FIELD_TOTAL_CHAOS) {
-+    double base =
-+        Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
-+
-+    double pressure = 1.0 + (double)size_bytes / 300000.0;
-+
-+    deadline = std::max(Config::TASK_MIN_DEADLINE * 0.2, base / pressure);
++    double min_d = Rng::pdrift(Config::TASK_MIN_DEADLINE, drift);
++    double max_d = Rng::pdrift(Config::TASK_MAX_DEADLINE, drift);
++    if (min_d > max_d) {
++      std::swap(min_d, max_d);
++    }
++    deadline = Rng::uniform(min_d, max_d);
 +  } else {
 +    deadline =
 +        Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
 +  }
-+}
+ }
  
  double Task::spent_time(Simulator &sim) { return sim.now() - timestamp; }
+diff --git a/utils/Rng.h b/utils/Rng.h
+index 2e1a279..776471a 100644
+--- a/utils/Rng.h
++++ b/utils/Rng.h
+@@ -3,6 +3,10 @@
  
-diff --git a/model/Task.h b/model/Task.h
-index 52279e7..d5cf27f 100644
---- a/model/Task.h
-+++ b/model/Task.h
-@@ -13,11 +13,9 @@ class Task {
-   int id = IdManager::next_id();
-   int origin_node_id = -1; // Added origin node ID
+ #include <random>
+ #include <stdexcept>
++#include <vector>
++
++// Forward declaration - ChaosManager is now in core/ChaosManager.h
++class ChaosManager;
  
--  long size_bytes = Rng::uniform(Config::TASK_MIN_SIZE, Config::TASK_MAX_SIZE);
--  long density_cycles_bytes =
--      Rng::normal(Config::TASK_MEAN_DENSITY, Config::TASK_STD_DENSITY);
--  double deadline =
--      Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
-+  long size_bytes;
-+  long density_cycles_bytes;
-+  double deadline;
-   bool offloaded = false;
-   friend std::ostream &operator<<(std::ostream &out, const Task &t);
+ struct Rng {
+   static constexpr int seed = 1978;
+@@ -31,14 +35,29 @@ struct Rng {
+     return d(engine());
+   }
  
-diff --git a/run_campaign.sh b/run_campaign.sh
-index 5874514..a9099bf 100755
---- a/run_campaign.sh
-+++ b/run_campaign.sh
-@@ -2,8 +2,8 @@
+-  template <typename T>
+-  static T sample(const std::vector<T>& vec) {
+-      if (vec.empty()) {
+-          throw std::runtime_error("Rng::sample: Attempted to sample from an empty vector.");
+-      }
+-      // Usa size_t para garantir compatibilidade com o tamanho máximo do vetor
+-      std::uniform_int_distribution<size_t> d(0, vec.size() - 1);
+-      return vec[d(engine())];
++  /**
++   * @brief Apply drift to a base value using explicit drift state
++   *
++   * This is the low-level function that applies the multiplicative drift.
++   * For consistent chaos across the system, use
++   * ChaosManager::instance().apply_drift()
++   *
++   * @param base The base value to perturb
++   * @param drift_state The drift factor (typically from ChaosManager.z)
++   * @return Perturbed value, guaranteed >= epsilon
++   */
++  static double pdrift(double base, double drift_state) {
++    static constexpr double epsilon = 1e-6;
++    return std::max(base * (1.0 + drift_state), epsilon);
++  }
++
++  template <typename T> static T sample(const std::vector<T> &vec) {
++    if (vec.empty()) {
++      throw std::runtime_error(
++          "Rng::sample: Attempted to sample from an empty vector.");
++    }
++    std::uniform_int_distribution<size_t> d(0, vec.size() - 1);
++    return vec[d(engine())];
+   }
+ };
  
- # Configuration
- POLICIES=("Local" "Random" "Intelligent" "FirstRemote")
--DURATION=500
--REPEATS=5
-+DURATION=700
-+REPEATS=33
- BASE_SEED=1978
- 
- # Create results directory if it doesn't exist
-diff --git a/tank_simulator.pro b/tank_simulator.pro
-index 0fd7e1d..aa23f85 100644
---- a/tank_simulator.pro
-+++ b/tank_simulator.pro
-@@ -18,6 +18,7 @@ SOURCES += \
-     events/SpecifiedTasksEvent.cpp \
-     model/Task.cpp \
-     model/Vehicle.cpp \
-+    core/Config.cpp \
- 
- HEADERS += \
-     events/SpecifiedTasksEvent.h \

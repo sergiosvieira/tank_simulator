@@ -186,5 +186,30 @@ int main(int argc, char **argv) {
   }
 
   sim.run(duration);
+
+  // === Temporal Chaos Validation ===
+  if (Config::FIELD_TOTAL_CHAOS) {
+    const auto &z = ChaosManager::instance().history();
+
+    if (z.size() > 2) {
+      double num = 0.0;
+      double den = 0.0;
+
+      for (size_t t = 1; t < z.size(); ++t) {
+        num += z[t] * z[t - 1];
+        den += z[t - 1] * z[t - 1];
+      }
+
+      double rho_hat = (den > 0.0) ? num / den : 0.0;
+
+      cout << "---------------------------------------" << endl;
+      cout << "Chaos Temporal Validation" << endl;
+      cout << "Estimated AR(1) rho_hat = " << rho_hat << endl;
+      cout << "Expected rho ≈ 0.9" << endl;
+      cout << "Samples collected = " << z.size() << endl;
+      cout << "---------------------------------------" << endl;
+    }
+  }
+
   return 0;
 }

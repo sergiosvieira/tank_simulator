@@ -26,6 +26,7 @@
 #include "Config.h"
 #include <algorithm>
 #include <random>
+#include <vector>
 
 class ChaosManager {
 public:
@@ -46,6 +47,7 @@ public:
     std::uniform_real_distribution<double> noise_dist(-1.0, 1.0);
     double epsilon = noise_dist(chaos_engine_);
     z = RHO * z + Config::CHAOS_INTENSITY * epsilon;
+    z_history_.push_back(z);
   }
 
   /**
@@ -69,9 +71,18 @@ public:
   double get_state() const { return z; }
 
   /**
-   * @brief Reset chaos state to zero
+   * @brief Get the history of chaos states for validation
+   * @return Vector of all z_t values recorded
    */
-  void reset() { z = 0.0; }
+  const std::vector<double> &history() const { return z_history_; }
+
+  /**
+   * @brief Reset chaos state to zero and clear history
+   */
+  void reset() {
+    z = 0.0;
+    z_history_.clear();
+  }
 
   /**
    * @brief Seed the internal chaos RNG for reproducibility
@@ -90,4 +101,7 @@ private:
 
   // Internal RNG engine (separate from main simulation RNG)
   std::mt19937 chaos_engine_;
+
+  // History of chaos states for validation
+  std::vector<double> z_history_;
 };
