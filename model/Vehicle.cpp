@@ -81,9 +81,23 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
         double tx_energy = EnergyManager::calculate_transmission_energy(
             decision_task->get_data_size(), 100.0); // 100m dist
 
+        double bandwidth = TransferManager::DEFAULT_BANDWIDTH;
+
+        // In CHAOS MODE, bandwidth fluctuates!
+        if (Config::getInstance().is_chaos_mode()) {
+          // Random fluctuation between 50% and 100% of bandwidth
+          // We use the task ID as seed addition to keep it deterministic per
+          // run but random per task
+          int chaos_seed = (int)decision_task->get_timestamp() * 1000 + tid;
+          std::srand(chaos_seed);
+          double factor = 0.5 + (std::rand() % 50) / 100.0; // 0.5 to 1.0
+          bandwidth *= factor;
+          report_metric(sim, "BandwidthDrop", factor, "Chaos", tid);
+        }
+
         // Transfer Time is NOW REAL - affects deadline!
         double tx_time = TransferManager::calculate_transfer_time(
-            decision_task->get_data_size());
+            decision_task->get_data_size(), bandwidth);
 
         // Store transfer time in task so Model can add it to latency
         decision_task->set_transfer_time(tx_time);
