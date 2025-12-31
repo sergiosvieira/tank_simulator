@@ -19,7 +19,7 @@ protected:
   int id = IdManager::next_id();
   std::queue<Task::PtrTask> processing_queue;
   Task::PtrTask processing_task = nullptr;
-  size_t queue_size = 3;
+  size_t queue_size = 10;
   std::string tag = "";
 
 public:

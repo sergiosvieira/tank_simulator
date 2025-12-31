@@ -5,6 +5,7 @@ namespace Config {
 // --------------------------------------------------
 // Chaos Mode
 // --------------------------------------------------
+
 inline bool FIELD_TOTAL_CHAOS = false;
 
 // --------------------------------------------------
@@ -14,7 +15,7 @@ inline double CHAOS_INTENSITY = 1.0; // default: no amplification
 
 inline void set_chaos_mode() {
   FIELD_TOTAL_CHAOS = true;
-  CHAOS_INTENSITY = 0.2; // moderate chaos (was 2.5, reduced for stability)
+  CHAOS_INTENSITY = 2.5; // moderate chaos (was 2.5, reduced for stability)
 }
 
 // --------------------------------------------------

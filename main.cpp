@@ -6,7 +6,8 @@
 #define M_E 2.71828182845904523536
 #endif
 
-#include "core/Config.h" // Added Config
+#include "core/ChaosManager.h" // Added ChaosManager
+#include "core/Config.h"       // Added Config
 #include "core/Simulator.h"
 #include "events/SpecifiedTasksEvent.h"
 #include "events/TaskGenerationEvent.h"
@@ -144,8 +145,9 @@ int main(int argc, char **argv) {
     positional_index++;
   }
 
-  // Set Global Seed
+  // Set Global Seed (both main RNG and ChaosManager for reproducibility)
   Rng::engine().seed(seed);
+  ChaosManager::instance().seed(seed);
 
   cout << "Running experiment with Policy: " << policy_name
        << " | Duration: " << duration << " | Seed: " << seed << endl;
