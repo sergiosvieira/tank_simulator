@@ -2,6 +2,7 @@
 #include "../events/DecisionEvent.h"
 #include "../logger.h"
 #include "core/EnergyManager.h"
+#include "core/TransferManager.h"
 #include <sstream>
 
 Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
@@ -81,9 +82,8 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
             decision_task->get_data_size(), 100.0); // 100m dist
 
         // Simulate Transfer Time (Logging only, no delay in sim yet)
-        // Bandwidth: 4 MB/s
-        double bandwidth = 4.0 * 1024 * 1024;
-        double tx_time = decision_task->get_data_size() / bandwidth;
+        double tx_time = TransferManager::calculate_transfer_time(
+            decision_task->get_data_size());
         report_metric(sim, "TransferTime", tx_time, "TxOnly", tid);
 
         this->battery.consume(tx_energy);
