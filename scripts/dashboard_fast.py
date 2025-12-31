@@ -36,28 +36,29 @@ def plot_dashboard_fast(df_sum, df_ts):
     ax = axes[0, 0]
     sns.barplot(ax=ax, x='Policy', y='SuccessRate', hue='Policy', data=df_sum, 
                 palette=palette, order=policies, estimator=np.mean, errorbar='sd')
-    ax.set_title('A. Success Rate (Mean of Seeds)', fontweight='bold')
+    ax.set_title('A. Task Success Rate (Mean)', fontweight='bold')
     ax.set_ylim(0, 1.1)
     for container in ax.containers: ax.bar_label(container, fmt='%.2f', padding=3)
     if ax.get_legend(): ax.get_legend().remove()
 
-    # B. Latency (Distribution of Averages)
+    # B. Processing Latency (Distribution)
     ax = axes[0, 1]
-    # Usamos AvgLatency de cada seed para ver a variabilidade entre execuções
+    # AvgLatency from logs is effectively Processing Time in current sim model
     sns.boxplot(ax=ax, x='Policy', y='AvgLatency', hue='Policy', data=df_sum, 
                  palette=palette, order=policies)
-    ax.set_title('B. Latency Stability (Avg per Seed)', fontweight='bold')
-    ax.set_ylabel('Avg Time (s)')
+    ax.set_title('B. Processing Latency (Avg per Seed)', fontweight='bold')
+    ax.set_ylabel('Time (s)')
     if ax.get_legend(): ax.get_legend().remove()
 
-    # C. Failures (Barplot Total) - Substituto para TimeSeries de erros
+    # C. Transfer Latency (Barplot) - New Metric
     ax = axes[0, 2]
-    # Sumariza falhas totais por policy
-    fail_agg = df_sum.groupby('Policy')['Failures'].mean().reset_index()
-    sns.barplot(ax=ax, x='Policy', y='Failures', hue='Policy', data=fail_agg,
-                palette=palette, order=policies)
-    ax.set_title('C. Avg Failures / Overflow', fontweight='bold')
-    for container in ax.containers: ax.bar_label(container, fmt='%.1f')
+    if 'AvgTransferTime' in df_sum.columns:
+        sns.barplot(ax=ax, x='Policy', y='AvgTransferTime', hue='Policy', data=df_sum,
+                    palette=palette, order=policies)
+        ax.set_title('C. Avg Transfer Time (Calculated)', fontweight='bold')
+        ax.set_ylabel('Time (s)')
+    else:
+        ax.text(0.5, 0.5, "Metric 'AvgTransferTime' not found", ha='center')
     if ax.get_legend(): ax.get_legend().remove()
 
     # === LINHA 2 ===
@@ -66,7 +67,7 @@ def plot_dashboard_fast(df_sum, df_ts):
     ax = axes[1, 0]
     sns.lineplot(ax=ax, x='Time', y='AvgQueueSize', hue='Policy', data=df_ts, 
                  palette=palette, hue_order=policies)
-    ax.set_title('D. Queue Size (Time Avg)', fontweight='bold')
+    ax.set_title('D. Queue Size Over Time', fontweight='bold')
     if ax.get_legend(): ax.get_legend().remove()
 
     # E. Offloading Distribution (Local vs Remote)
@@ -80,7 +81,7 @@ def plot_dashboard_fast(df_sum, df_ts):
     
     sns.barplot(ax=ax, x='Policy', y='Count', hue='Location', data=off_agg,
                 order=policies, palette={"Local": "#95A5A6", "Remote": "#2C3E50"})
-    ax.set_title('E. Avg Decisions per Run', fontweight='bold')
+    ax.set_title('E. Offloading Strategy (Decisions)', fontweight='bold')
     ax.legend(title='Target')
 
     # F. Energy Composition
@@ -92,7 +93,7 @@ def plot_dashboard_fast(df_sum, df_ts):
                color=[palette[p] for p in en_agg.index], edgecolor='white')
         ax.bar(en_agg.index, en_agg['TotalEnergyTx'], bottom=en_agg['TotalEnergyCPU'], 
                label='Tx', color=[palette[p] for p in en_agg.index], hatch='///', edgecolor='white', alpha=0.6)
-        ax.set_title('F. Avg Energy Consumed (J)', fontweight='bold')
+        ax.set_title('F. Energy Consumption Breakdown (J)', fontweight='bold')
         ax.legend()
 
     # === LINHA 3 ===
@@ -101,37 +102,17 @@ def plot_dashboard_fast(df_sum, df_ts):
     ax = axes[2, 0]
     sns.lineplot(ax=ax, x='Time', y='AvgBattery', hue='Policy', data=df_ts, 
                  palette=palette, hue_order=policies)
-    ax.set_title('G. Battery Level (Avg)', fontweight='bold')
+    ax.set_title('G. Battery Level Over Time', fontweight='bold')
     if ax.get_legend(): ax.get_legend().remove()
 
     # H. Efficiency (J per Success)
     ax = axes[2, 1]
-    # Calcular eficiencia por linha (seed) antes da média
-    # Evita divisão por zero
     df_sum['TotalEnergy'] = df_sum['TotalEnergyCPU'] + df_sum['TotalEnergyTx']
-    # Total Tasks = Successes / SuccessRate (aprox, ou podemos usar Successes direto se tivessemos salvo, salvamos successes?)
-    # O C++ salvou SuccessRate e counts se sucesso?
-    # C++ salvou: SuccessRate. Precisamos de SuccessCount para dividir Energia por ele.
-    # Ah, o C++ não salvou 'SuccessCount' explicitamente no CSV, só rate.
-    # Mas salvou TotalTasks? Não.
-    # Mas podemos aproximar: Efficiency = TotalEnergy / (SuccessRate * 100 tasks? n sabemos N)
-    # Espera, success rate é 0..1. 
-    # Melhor métrica aqui seria Energy per Task? Ou Energy per Success?
-    # Vamos usar Energy / SuccessRate (inverso da eficiencia) -> J for 100% success? Não faz sentido.
-    # Vamos assumir N constante entre seeds e usar TotalEnergy como proxy de custo, 
-    # mas o gráfico original era "J / Success".
-    # Sem o count de sucessos exatos, fica difícil.
-    # Mudei o C++ para não salvar successes count. Erro meu.
-    # Mas tenho o rate. Assumindo que o numero de tasks é constante (cenário fixo), Rate é proporcional a Count.
-    # Vamos plotar "J / %Success" (Energy cost for 1% success)? Unintuitive.
-    # Vamos apenas plotar Total Energy vs Success Rate (Scatter) no proximo.
-    # Aqui vamos plotar "Energy Efficiency Score" = SuccessRate / TotalEnergy (Higher is better)
-    
     df_sum['EfficiencyScore'] = df_sum['SuccessRate'] / df_sum['TotalEnergy']
     sns.barplot(ax=ax, x='Policy', y='EfficiencyScore', hue='Policy', data=df_sum,
                 palette=palette, order=policies)
-    ax.set_title('H. Efficiency Score (Success/Energy)', fontweight='bold')
-    ax.set_ylabel('Rate / J')
+    ax.set_title('H. System Efficiency (Success / Energy)', fontweight='bold')
+    ax.set_ylabel('Score')
     if ax.get_legend(): ax.get_legend().remove()
 
     # I. Pareto Map
@@ -145,7 +126,7 @@ def plot_dashboard_fast(df_sum, df_ts):
     sns.scatterplot(ax=ax, data=means, x='TotalEnergy', y='SuccessRate', hue='Policy',
                     palette=palette, s=400, marker='X', legend=False, edgecolor='black', linewidth=2)
     
-    ax.set_title('I. Pareto Frontier (Seeds + Means)', fontweight='bold')
+    ax.set_title('I. Pareto Frontier (Energy vs Success)', fontweight='bold')
     if ax.get_legend(): ax.get_legend().remove()
 
     plt.suptitle("Fast Dashboard (C++ Pre-processed)", fontsize=20, y=0.98)

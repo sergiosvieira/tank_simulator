@@ -62,6 +62,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
 
   if (result.decision_type == DecisionType::Local) {
     // Local processing: call Base implementation
+    report_metric(sim, "TransferTime", 0.0, "Local", tid); // No transfer time
     bool accepted = this->accept_processing_task(sim, decision_task);
     if (!accepted)
       report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local",
@@ -78,12 +79,20 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
       } else {
         double tx_energy = EnergyManager::calculate_transmission_energy(
             decision_task->get_data_size(), 100.0); // 100m dist
+
+        // Simulate Transfer Time (Logging only, no delay in sim yet)
+        // Bandwidth: 4 MB/s
+        double bandwidth = 4.0 * 1024 * 1024;
+        double tx_time = decision_task->get_data_size() / bandwidth;
+        report_metric(sim, "TransferTime", tx_time, "TxOnly", tid);
+
         this->battery.consume(tx_energy);
         report_metric(sim, "EnergyConsumption", tx_energy, "TxOnly", tid);
         report_metric(sim, "TxEnergy", tx_energy, tag, tid);
       }
     } else {
       // Fallback if no device chosen? For now Local.
+      report_metric(sim, "TransferTime", 0.0, "Local", tid);
       bool accepted = this->accept_processing_task(sim, decision_task);
       if (!accepted)
         report_metric_for_node(sim, get_id(), "FullQueueError", 1.0,

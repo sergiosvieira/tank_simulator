@@ -35,6 +35,7 @@ struct SimulationStats {
 
   // Latência (armazenamos tudo para calcular percentis ou histograma depois)
   vector<double> latencies;
+  vector<double> transfer_times; // New metric
 
   // Time Series (Binning)
   // Map: Time (int) -> pair<sum, count>
@@ -114,6 +115,8 @@ SimulationStats parse_file(const fs::path &path) {
         stats.total_tasks++; // Conta como task tentada
       } else if (s_metric == "TaskLatency") {
         stats.latencies.push_back(stod(s_value));
+      } else if (s_metric == "TransferTime") {
+        stats.transfer_times.push_back(stod(s_value));
       } else if (s_metric == "EnergyConsumption") {
         double e = stod(s_value);
         if (s_tag.find("CpuOnly") != string::npos)
@@ -179,10 +182,10 @@ int main(int argc, char *argv[]) {
   // b) aggregated_timeseries.csv (Binado por tempo e policy)
 
   ofstream out_summary("results/aggregated_summary.csv");
-  out_summary
-      << "Policy,Filename,SuccessRate,TotalEnergyCPU,TotalEnergyTx,"
-         "AvgLatency,P50Latency,P95Latency,Failures,OffloadLocal,OffloadRemote"
-      << endl;
+  out_summary << "Policy,Filename,SuccessRate,TotalEnergyCPU,TotalEnergyTx,"
+                 "AvgLatency,P50Latency,P95Latency,Failures,OffloadLocal,"
+                 "OffloadRemote,AvgTransferTime"
+              << endl;
 
   // Para timeseries, precisamos agregar por policy primeiro
   // Policy -> TimeBin -> {SumValue, Count} (para tirar média global)
@@ -215,11 +218,18 @@ int main(int argc, char *argv[]) {
       lat_p95 = stats.latencies[stats.latencies.size() * 0.95];
     }
 
+    double transfer_avg = 0;
+    if (!stats.transfer_times.empty()) {
+      double sum = accumulate(stats.transfer_times.begin(),
+                              stats.transfer_times.end(), 0.0);
+      transfer_avg = sum / stats.transfer_times.size();
+    }
+
     out_summary << stats.policy << "," << stats.filename << "," << succ_rate
                 << "," << stats.energy_cpu << "," << stats.energy_tx << ","
                 << lat_avg << "," << lat_p50 << "," << lat_p95 << ","
                 << stats.failures << "," << stats.offload_local << ","
-                << stats.offload_remote << endl;
+                << stats.offload_remote << "," << transfer_avg << endl;
 
     // Agregar TimeSeries
     for (auto const &[bin, val] : stats.queue_series) {
