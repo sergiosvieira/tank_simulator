@@ -105,11 +105,14 @@ void Model::OnProcessingComplete(Simulator &sim) {
     return;
   }
   double latency = processing_task->spent_time(sim);
-  report_metric_for_node(sim, origin_id, "TaskLatency", latency, "", tid);
-  bool success = (latency <= processing_task->get_deadline());
+  // Add transfer time for offloaded tasks (network overhead)
+  double tx_time = processing_task->get_transfer_time();
+  double total_latency = latency + tx_time;
+  report_metric_for_node(sim, origin_id, "TaskLatency", total_latency, "", tid);
+  bool success = (total_latency <= processing_task->get_deadline());
   report_metric_for_node(sim, origin_id, "TaskSuccess", success ? 1.0 : 0.0,
                          tag, tid);
-  double margin = processing_task->get_deadline() - latency;
+  double margin = processing_task->get_deadline() - total_latency;
   report_metric_for_node(sim, origin_id, "TaskMargin", margin, tag, tid);
 
   report_metric_for_node(

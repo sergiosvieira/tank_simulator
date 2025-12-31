@@ -17,6 +17,8 @@ class Task {
   long density_cycles_bytes;
   double deadline;
   bool offloaded = false;
+  double transfer_time =
+      0.0; // Time spent transferring data (for offloaded tasks)
   friend std::ostream &operator<<(std::ostream &out, const Task &t);
 
 public:
@@ -38,6 +40,8 @@ public:
   long get_data_size() const { return size_bytes; }
   long get_cycles() const { return density_cycles_bytes; }
   double get_timestamp() const { return timestamp; }
+  double get_transfer_time() const { return transfer_time; }
+  void set_transfer_time(double t) { transfer_time = t; }
 };
 
 std::ostream &operator<<(std::ostream &out, const Task &t);

@@ -81,9 +81,12 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
         double tx_energy = EnergyManager::calculate_transmission_energy(
             decision_task->get_data_size(), 100.0); // 100m dist
 
-        // Simulate Transfer Time (Logging only, no delay in sim yet)
+        // Transfer Time is NOW REAL - affects deadline!
         double tx_time = TransferManager::calculate_transfer_time(
             decision_task->get_data_size());
+
+        // Store transfer time in task so Model can add it to latency
+        decision_task->set_transfer_time(tx_time);
         report_metric(sim, "TransferTime", tx_time, "TxOnly", tid);
 
         this->battery.consume(tx_energy);
