@@ -1,6 +1,7 @@
 #ifndef TASK_H
 #define TASK_H
 
+#include "core/Config.h"    // Added Config
 #include "core/Simulator.h" // Needed for constructor argument and method
 #include "utils/IdManager.h"
 #include "utils/Rng.h"
@@ -10,10 +11,13 @@
 class Task {
   double timestamp = 0;
   int id = IdManager::next_id();
-  int origin_node_id = -1;                            // Added origin node ID
-  long size_bytes = Rng::uniform(100000, 300000);     // 100KB - 300KB
-  long density_cycles_bytes = Rng::normal(1000, 100); // 1000 cycles/byte
-  double deadline = Rng::uniform(0.4, 0.5);           // 100ms - 200ms
+  int origin_node_id = -1; // Added origin node ID
+
+  long size_bytes = Rng::uniform(Config::TASK_MIN_SIZE, Config::TASK_MAX_SIZE);
+  long density_cycles_bytes =
+      Rng::normal(Config::TASK_MEAN_DENSITY, Config::TASK_STD_DENSITY);
+  double deadline =
+      Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
   bool offloaded = false;
   friend std::ostream &operator<<(std::ostream &out, const Task &t);
 

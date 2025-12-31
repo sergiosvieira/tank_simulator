@@ -1,3 +1,12 @@
+#include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_E
+#define M_E 2.71828182845904523536
+#endif
+
+#include "core/Config.h" // Added Config
 #include "core/Simulator.h"
 #include "events/SpecifiedTasksEvent.h"
 #include "events/TaskGenerationEvent.h"
@@ -8,6 +17,7 @@
 #include "model/OffPolicy.h"
 #include "model/RSU.h"
 #include "model/RandomPolicy.h"
+#include "model/Task.h"
 #include "model/Vehicle.h"
 #include "utils/Rng.h"
 #include <iostream>
@@ -40,6 +50,49 @@ std::string get_result_filename(const std::string &name, int seed) {
   return "results/experiment_001_" + s + "_" + std::to_string(seed) + ".csv";
 }
 
+void calculate_scenario_entropy() {
+  double lambda = Config::TRAFFIC_LAMBDA;
+
+  // ---------- Proper relative uncertainty (non-negative, interpretable)
+  // ----------
+
+  // Exponential arrivals: mean inter-arrival time
+  double U_arrival = (1.0 / lambda) / Config::REF_ARRIVAL_MAX_MEAN;
+
+  // Uniform size span
+  double U_size =
+      (Config::TASK_MAX_SIZE - Config::TASK_MIN_SIZE) / Config::REF_SIZE_SPAN;
+
+  // Normal density dispersion
+  double U_density = Config::TASK_STD_DENSITY / Config::REF_DENSITY_STD_MAX;
+
+  // Uniform deadline span
+  double U_deadline = (Config::TASK_MAX_DEADLINE - Config::TASK_MIN_DEADLINE) /
+                      Config::REF_DEADLINE_SPAN;
+
+  // Optional logarithmic compression (safe)
+  auto compress = [](double u) { return std::log(1.0 + u); };
+
+  double UN_arrival = compress(U_arrival);
+  double UN_size = compress(U_size);
+  double UN_density = compress(U_density);
+  double UN_deadline = compress(U_deadline);
+
+  // ---------- Aggregated Scenario Uncertainty ----------
+  double scenario_uncertainty_index =
+      UN_arrival + UN_size + UN_density + UN_deadline;
+
+  cout << ">>> Scenario Uncertainty Analysis (Proper Relative) <<<" << endl;
+  cout << "Arrivals  | U = " << UN_arrival << endl;
+  cout << "Task Size | U = " << UN_size << endl;
+  cout << "Density   | U = " << UN_density << endl;
+  cout << "Deadline  | U = " << UN_deadline << endl;
+
+  cout << "---------------------------------------" << endl;
+  cout << "Scenario Uncertainty Index: " << scenario_uncertainty_index << endl;
+  cout << "---------------------------------------" << endl;
+}
+
 int main(int argc, char **argv) {
   std::string policy_name = "Local";
   double duration = 100.0;
@@ -57,17 +110,13 @@ int main(int argc, char **argv) {
 
   cout << "Running experiment with Policy: " << policy_name
        << " | Duration: " << duration << " | Seed: " << seed << endl;
+
+  calculate_scenario_entropy();
+
   Simulator sim;
   auto policy = create_policy(policy_name);
   std::string result_file = get_result_filename(policy_name, seed);
   cout << "Results will be saved to: " << result_file << endl;
-
-  // Setup Tasks (Rng used inside Task constructor will valid seed)
-  // std::vector<Task::PtrTask> tasks = {
-  //     std::make_shared<Task>(1.0, 300, 300000, 0.08),
-  //     std::make_shared<Task>(2.0, 200, 200000, 0.04)};
-  // SpecifiedTasksEvent::tasks = tasks;
-  // SpecifiedTasksEvent::reset();
 
   MetricsHub::instance().clearListeners();
   auto csvCollector = std::make_shared<CSVMetricsCollector>(result_file);
@@ -84,12 +133,11 @@ int main(int argc, char **argv) {
     r->report_metric(sim, "BatteryRemaining", r->battery.get_remaining());
   }
 
-
   for (auto v : vehicles) {
     v->set_rsus(rsus);
     v->battery = Battery(10000.0); // Set 10kJ battery
     v->report_metric(sim, "BatteryRemaining", v->battery.get_remaining());
-    sim.schedule<TaskGenerationEvent>(1.0, v, Lambda);
+    sim.schedule<TaskGenerationEvent>(1.0, v, Config::TRAFFIC_LAMBDA);
   }
 
   sim.run(duration);
