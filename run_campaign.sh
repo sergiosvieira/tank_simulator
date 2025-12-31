@@ -2,8 +2,8 @@
 
 # Configuration
 POLICIES=("Local" "Random" "Intelligent" "FirstRemote")
-DURATION=500
-REPEATS=5
+DURATION=700
+REPEATS=33
 BASE_SEED=1978
 
 # Create results directory if it doesn't exist
@@ -31,10 +31,10 @@ for policy in "${POLICIES[@]}"; do
         
         # Run simulation in background to speed up (optional)
         # Remove '&' and 'wait' logic if you prefer sequential execution
-        ./tank_simulator "$policy" "$DURATION" "$SEED" > /dev/null &
+        ./tank_simulator "$policy" "$DURATION" "$SEED" --chaos > /dev/null &
         
         # Limit parallel jobs to avoid overloading (e.g., max 8 parallel)
-        if (( i % 8 == 0 )); then
+        if (( i % 4 == 0 )); then
             wait
         fi
     done

@@ -14,6 +14,7 @@ public:
                       double lambda_ = Config::TRAFFIC_LAMBDA)
       : Event(t), model(model_), lambda(lambda_) {}
   void execute(Simulator &sim) override;
+  void schedule_next(Simulator &sim);
 };
 
 #endif // TASKGENERATIONEVENT_H

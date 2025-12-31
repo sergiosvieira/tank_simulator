@@ -1,31 +1,48 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 namespace Config {
 
-// --- Traffic Generation ---
+// --------------------------------------------------
+// Chaos Mode
+// --------------------------------------------------
+inline bool FIELD_TOTAL_CHAOS = false;
+
+// --------------------------------------------------
+// Chaos Intensity (temporal amplification)
+// --------------------------------------------------
+inline double CHAOS_INTENSITY = 1.0; // default: no amplification
+
+inline void set_chaos_mode() {
+  FIELD_TOTAL_CHAOS = true;
+  CHAOS_INTENSITY = 0.2; // moderate chaos (was 2.5, reduced for stability)
+}
+
+// --------------------------------------------------
+// Traffic Generation
+// --------------------------------------------------
 // Lambda = Arrival Rate (tasks per second)
 // 1 task every 0.08s => 12.5 tasks/s
-static constexpr double TRAFFIC_LAMBDA = 1.0 / 0.08;
+inline double TRAFFIC_LAMBDA = 1.0 / 0.08;
 
-// --- Task Characteristics ---
-static constexpr long TASK_MIN_SIZE = 100000; // 100 KB
-static constexpr long TASK_MAX_SIZE = 300000; // 300 KB
+// --------------------------------------------------
+// Task Characteristics
+// --------------------------------------------------
+inline long TASK_MIN_SIZE = 100000;
+inline long TASK_MAX_SIZE = 300000;
 
-static constexpr long TASK_MEAN_DENSITY = 1000; // 1000 cycles/byte
-static constexpr long TASK_STD_DENSITY = 100;   // 100 cycles/byte
+inline long TASK_MEAN_DENSITY = 1000;
+inline long TASK_STD_DENSITY = 100;
 
-static constexpr double TASK_MIN_DEADLINE = 0.4; // 400 ms
-static constexpr double TASK_MAX_DEADLINE = 0.5; // 500 ms
+inline double TASK_MIN_DEADLINE = 0.4;
+inline double TASK_MAX_DEADLINE = 0.5;
 
-// --- Uncertainty Reference Bounds (Normalization Factors) ---
+// --------------------------------------------------
+// Uncertainty Reference Bounds (FIXED DESIGN SPACE)
+// --------------------------------------------------
 // Used for entropy calculation relative to a "maximum expected" design space
-static constexpr double REF_ARRIVAL_MAX_MEAN =
-    1.0 / 0.01; // Max Mean Inter-arrival: 100s
-static constexpr double REF_SIZE_SPAN = 1000000.0;    // 1 MB range
-static constexpr double REF_DENSITY_STD_MAX = 1000.0; // High variance
-static constexpr double REF_DEADLINE_SPAN = 10.0;     // 10s range
+static constexpr double REF_ARRIVAL_MAX_MEAN = 1.0 / 0.01; // 100s
+static constexpr double REF_SIZE_SPAN = 1000000.0;         // 1 MB
+static constexpr double REF_DENSITY_STD_MAX = 1000.0;
+static constexpr double REF_DEADLINE_SPAN = 10.0;
 
 } // namespace Config
-
-#endif // CONFIG_H

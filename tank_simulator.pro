@@ -18,6 +18,7 @@ SOURCES += \
     events/SpecifiedTasksEvent.cpp \
     model/Task.cpp \
     model/Vehicle.cpp \
+    core/Config.cpp \
 
 HEADERS += \
     events/SpecifiedTasksEvent.h \

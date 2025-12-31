@@ -13,11 +13,9 @@ class Task {
   int id = IdManager::next_id();
   int origin_node_id = -1; // Added origin node ID
 
-  long size_bytes = Rng::uniform(Config::TASK_MIN_SIZE, Config::TASK_MAX_SIZE);
-  long density_cycles_bytes =
-      Rng::normal(Config::TASK_MEAN_DENSITY, Config::TASK_STD_DENSITY);
-  double deadline =
-      Rng::uniform(Config::TASK_MIN_DEADLINE, Config::TASK_MAX_DEADLINE);
+  long size_bytes;
+  long density_cycles_bytes;
+  double deadline;
   bool offloaded = false;
   friend std::ostream &operator<<(std::ostream &out, const Task &t);
 
