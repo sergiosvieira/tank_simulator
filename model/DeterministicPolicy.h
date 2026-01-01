@@ -1,9 +1,10 @@
 #ifndef DETERMINISTICPOLICY_H
 #define DETERMINISTICPOLICY_H
 
-#include "OffPolicy.h"
 #include <map>
 #include <vector>
+
+#include "OffPolicy.h"
 
 /**
  * @brief Deterministic Policy - Scripted Decision Making
@@ -26,7 +27,7 @@
 
 struct ScriptedDecision {
   DecisionType type = DecisionType::Local;
-  int rsu_index = -1; // -1 = local, 0+ = RSU index
+  int rsu_index = -1;  // -1 = local, 0+ = RSU index
 
   ScriptedDecision() = default;
   ScriptedDecision(DecisionType t, int idx = -1) : type(t), rsu_index(idx) {}
@@ -41,8 +42,9 @@ struct ScriptedDecision {
 };
 
 class DeterministicPolicy : public OffPolicy {
-public:
-  using DecisionScript = std::map<int, ScriptedDecision>; // task_id -> decision
+ public:
+  using DecisionScript =
+      std::map<int, ScriptedDecision>;  // task_id -> decision
 
   DeterministicPolicy() { name = "DeterministicPolicy"; }
 
@@ -119,7 +121,7 @@ public:
 
     int rsu_idx = decision.rsu_index;
     if (rsu_idx < 0 || rsu_idx >= static_cast<int>(rsus.size())) {
-      rsu_idx = 0; // Default to first RSU
+      rsu_idx = 0;  // Default to first RSU
     }
 
     return {DecisionType::Remote, rsus[rsu_idx]};
@@ -130,7 +132,7 @@ public:
    * Minimal time since decision is pre-computed
    */
   double decision_time(Task::PtrTask task) override {
-    return 0.001; // 1ms - essentially instant lookup
+    return 0.001;  // 1ms - essentially instant lookup
   }
 
   /**
@@ -143,8 +145,8 @@ public:
    */
   size_t script_size() const { return decisions_.size(); }
 
-private:
+ private:
   DecisionScript decisions_;
 };
 
-#endif // DETERMINISTICPOLICY_H
+#endif  // DETERMINISTICPOLICY_H

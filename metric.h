@@ -24,7 +24,7 @@ struct MetricRecord {
 
 // Interface do Listener (O "Contrato")
 class IMetricListener {
-public:
+ public:
   virtual ~IMetricListener() = default;
   virtual void onMetricRecorded(const MetricRecord &record) = 0;
 };
@@ -35,12 +35,12 @@ class CSVMetricsCollector : public IMetricListener {
   std::vector<MetricRecord> buffer;
   std::mutex mtx;
   const size_t BUFFER_LIMIT =
-      10000; // Flush a cada 10k registros para performance
+      10000;  // Flush a cada 10k registros para performance
 
-public:
+ public:
   CSVMetricsCollector(const std::string &fname) : filename(fname) {
     std::ofstream file(filename, std::ios::out | std::ios::trunc);
-    file << "Time,EntityID,Metric,Value,Tag,TaskID,Location\n"; // Header CSV
+    file << "Time,EntityID,Metric,Value,Tag,TaskID,Location\n";  // Header CSV
   }
 
   ~CSVMetricsCollector() { flush(); }
@@ -54,8 +54,7 @@ public:
   }
 
   void flush() {
-    if (buffer.empty())
-      return;
+    if (buffer.empty()) return;
     std::ofstream file(filename, std::ios::out | std::ios::app);
     for (const auto &rec : buffer) {
       file << rec.time << "," << rec.entity_id << "," << rec.metric_name << ","
@@ -70,7 +69,7 @@ public:
 class MetricsHub {
   std::vector<std::shared_ptr<IMetricListener>> listeners;
 
-public:
+ public:
   static MetricsHub &instance() {
     static MetricsHub hub;
     return hub;
@@ -98,9 +97,9 @@ public:
 };
 
 // Macro para facilitar o uso no código (S syntactic sugar)
-#define RECORD_METRIC(sim, entity_id, name, val, tag, ...)                     \
-  MetricsHub::instance().record(sim.now(), entity_id, name, val, tag,          \
-                                ##__VA_ARGS__, __builtin_FILE(),               \
+#define RECORD_METRIC(sim, entity_id, name, val, tag, ...)            \
+  MetricsHub::instance().record(sim.now(), entity_id, name, val, tag, \
+                                ##__VA_ARGS__, __builtin_FILE(),      \
                                 __builtin_LINE())
 
-#endif // METRIC_H
+#endif  // METRIC_H

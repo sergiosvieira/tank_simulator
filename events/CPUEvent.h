@@ -8,10 +8,10 @@ class CPUEvent : public Event {
   Model::PtrModel model = nullptr;
   EventType type;
 
-public:
+ public:
   CPUEvent(double t, Model::PtrModel model_, EventType type_)
       : Event(t), model(model_), type(type_) {}
   void execute(Simulator &sim) override { model->events[type](sim); }
 };
 
-#endif // CPUEVENT_H
+#endif  // CPUEVENT_H

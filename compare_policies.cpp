@@ -11,6 +11,16 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <numeric>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include "core/ChaosManager.h"
 #include "core/Config.h"
 #include "core/Simulator.h"
@@ -26,15 +36,6 @@
 #include "model/Vehicle.h"
 #include "scenarios/OracleScenario.h"
 #include "utils/Rng.h"
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <numeric>
-#include <sstream>
-#include <string>
-#include <vector>
 
 using std::cout, std::endl;
 
@@ -120,7 +121,7 @@ PolicyResult run_with_policy(const std::string &policy_name,
   // Parse results from CSV
   std::ifstream csv_file(result_file);
   std::string line;
-  std::getline(csv_file, line); // Skip header
+  std::getline(csv_file, line);  // Skip header
 
   std::vector<double> latencies;
   double initial_battery = 10000.0;
@@ -167,8 +168,7 @@ PolicyResult run_with_policy(const std::string &policy_name,
   }
   if (!latencies.empty()) {
     double sum = 0;
-    for (double l : latencies)
-      sum += l;
+    for (double l : latencies) sum += l;
     result.avg_latency = sum / latencies.size();
   }
   result.total_energy = initial_battery - final_battery;

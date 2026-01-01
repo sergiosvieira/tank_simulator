@@ -1,12 +1,13 @@
 #ifndef OFFPOLICY_H
 #define OFFPOLICY_H
 
-#include "Task.h"
-#include "utils/Rng.h"
-#include "model/RSU.h"
 #include <memory>
 
-class Model; // Forward declaration
+#include "Task.h"
+#include "model/RSU.h"
+#include "utils/Rng.h"
+
+class Model;  // Forward declaration
 
 enum class DecisionType { Local, Remote };
 
@@ -19,21 +20,22 @@ enum class OffPolicyState { Idle, Busy };
 
 class OffPolicy {
   OffPolicyState current_state = OffPolicyState::Idle;
-public:  
+
+ public:
   using PtrOffPolicy = std::shared_ptr<OffPolicy>;
-  virtual DecisionResult decide(Task::PtrTask task, std::vector<RSU::PtrRSU>& rsus);
+  virtual DecisionResult decide(Task::PtrTask task,
+                                std::vector<RSU::PtrRSU>& rsus);
   virtual double decision_time(Task::PtrTask task);
   void complete() { current_state = OffPolicyState::Idle; }
   void start() { current_state = OffPolicyState::Busy; }
   bool is_idle() const { return current_state == OffPolicyState::Idle; }
   bool is_busy() const { return current_state == OffPolicyState::Busy; }
-  std::string get_name() const {
-      return name;
-  }
+  std::string get_name() const { return name; }
   virtual void set_host(Model::PtrModel host_) { host = host_; }
-protected:
+
+ protected:
   std::string name = "LocalPolicy";
   Model::PtrModel host = nullptr;
 };
 
-#endif // OFFPOLICY_H
+#endif  // OFFPOLICY_H

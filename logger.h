@@ -21,11 +21,11 @@
 enum class LogLevel { DEBUG, INFO, WARN, ERROR, DATA };
 
 class Logger {
-private:
+ private:
   std::ofstream traceFile;
   std::ofstream metricsFile;
   std::mutex
-      mtx; // Garante thread-safety (caso expanda para multithread no futuro)
+      mtx;  // Garante thread-safety (caso expanda para multithread no futuro)
   bool debugEnabled = true;
 
   // Construtor privado (Singleton)
@@ -42,13 +42,11 @@ private:
   }
 
   ~Logger() {
-    if (traceFile.is_open())
-      traceFile.close();
-    if (metricsFile.is_open())
-      metricsFile.close();
+    if (traceFile.is_open()) traceFile.close();
+    if (metricsFile.is_open()) metricsFile.close();
   }
 
-public:
+ public:
   // Acesso à instância única
   static Logger &instance() {
     static Logger instance;
@@ -60,8 +58,7 @@ public:
 
   // 1. LOG DE RASTREIO (Humano)
   void log(double simTime, LogLevel level, const std::string &msg) {
-    if (level == LogLevel::DEBUG && !debugEnabled)
-      return;
+    if (level == LogLevel::DEBUG && !debugEnabled) return;
 
     std::lock_guard<std::mutex> lock(mtx);
 
@@ -69,20 +66,20 @@ public:
     traceFile << std::fixed << std::setprecision(4) << "[" << simTime << "] ";
 
     switch (level) {
-    case LogLevel::DEBUG:
-      traceFile << "[DEBUG] ";
-      break;
-    case LogLevel::INFO:
-      traceFile << "[INFO]  ";
-      break;
-    case LogLevel::WARN:
-      traceFile << "[WARN]  ";
-      break;
-    case LogLevel::ERROR:
-      traceFile << "[ERROR] ";
-      break;
-    default:
-      break;
+      case LogLevel::DEBUG:
+        traceFile << "[DEBUG] ";
+        break;
+      case LogLevel::INFO:
+        traceFile << "[INFO]  ";
+        break;
+      case LogLevel::WARN:
+        traceFile << "[WARN]  ";
+        break;
+      case LogLevel::ERROR:
+        traceFile << "[ERROR] ";
+        break;
+      default:
+        break;
     }
     traceFile << msg << std::endl;
 
@@ -113,7 +110,7 @@ public:
 #define LOG_ERROR(t, msg) Logger::instance().log(t, LogLevel::ERROR, msg)
 
 // Macro para registrar dados estatísticos
-#define LOG_METRIC(t, id, name, val)                                           \
+#define LOG_METRIC(t, id, name, val) \
   Logger::instance().recordMetric(t, id, name, val)
 
-#endif // LOGGER_H
+#endif  // LOGGER_H

@@ -51,7 +51,8 @@ struct Rng {
     return std::max(base * (1.0 + drift_state), epsilon);
   }
 
-  template <typename T> static T sample(const std::vector<T> &vec) {
+  template <typename T>
+  static T sample(const std::vector<T> &vec) {
     if (vec.empty()) {
       throw std::runtime_error(
           "Rng::sample: Attempted to sample from an empty vector.");
@@ -61,4 +62,4 @@ struct Rng {
   }
 };
 
-#endif // RNG_H
+#endif  // RNG_H

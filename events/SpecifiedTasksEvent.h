@@ -8,7 +8,7 @@ class SpecifiedTasksEvent : public Event {
   Vehicle::PtrVehicle model = nullptr;
   static size_t index;
 
-public:
+ public:
   static std::vector<Task::PtrTask> tasks;
   static void reset() { index = 0; }
 
@@ -17,4 +17,4 @@ public:
   void execute(Simulator &sim) override;
 };
 
-#endif // SPECIFIEDTASKSEVENT_H
+#endif  // SPECIFIEDTASKSEVENT_H

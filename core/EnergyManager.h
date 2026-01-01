@@ -1,15 +1,16 @@
 #ifndef ENERGYMANAGER_H
 #define ENERGYMANAGER_H
 
+#include <cmath>
+
 #include "../utils/Rng.h"
 #include "ChaosManager.h"
 #include "Config.h"
-#include <cmath>
 
 class EnergyManager {
-public:
+ public:
   // Constants for energy model
-  static constexpr double K = 1e-28; // Effective switched capacitance
+  static constexpr double K = 1e-28;  // Effective switched capacitance
 
   static double calculate_processing_energy(double frequency, long cycles) {
     double result = K * std::pow(frequency, 2) * cycles;
@@ -33,4 +34,4 @@ public:
   }
 };
 
-#endif // ENERGYMANAGER_H
+#endif  // ENERGYMANAGER_H

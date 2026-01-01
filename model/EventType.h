@@ -8,4 +8,4 @@ enum class EventType {
   OnProcessingComplete,
 };
 
-#endif // EVENTTYPE_H
+#endif  // EVENTTYPE_H

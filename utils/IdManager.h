@@ -8,4 +8,4 @@ struct IdManager {
   }
 };
 
-#endif // IDMANAGER_H
+#endif  // IDMANAGER_H

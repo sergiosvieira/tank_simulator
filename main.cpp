@@ -6,8 +6,14 @@
 #define M_E 2.71828182845904523536
 #endif
 
-#include "core/ChaosManager.h" // Added ChaosManager
-#include "core/Config.h"       // Added Config
+#include <iostream>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "core/ChaosManager.h"  // Added ChaosManager
+#include "core/Config.h"        // Added Config
 #include "core/Simulator.h"
 #include "events/SpecifiedTasksEvent.h"
 #include "events/TaskGenerationEvent.h"
@@ -21,22 +27,14 @@
 #include "model/Task.h"
 #include "model/Vehicle.h"
 #include "utils/Rng.h"
-#include <iostream>
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
 
 using std::cout, std::endl;
 
 std::shared_ptr<OffPolicy> create_policy(const std::string &name) {
-  if (name == "Random")
-    return std::make_shared<RandomPolicy>();
-  if (name == "Intelligent")
-    return std::make_shared<IntelligentPolicy>();
-  if (name == "FirstRemote")
-    return std::make_shared<FirstRemotePolicy>();
-  return std::make_shared<OffPolicy>(); // Default: Local
+  if (name == "Random") return std::make_shared<RandomPolicy>();
+  if (name == "Intelligent") return std::make_shared<IntelligentPolicy>();
+  if (name == "FirstRemote") return std::make_shared<FirstRemotePolicy>();
+  return std::make_shared<OffPolicy>();  // Default: Local
 }
 
 std::string get_result_filename(const std::string &name, int seed) {
@@ -46,8 +44,7 @@ std::string get_result_filename(const std::string &name, int seed) {
                                                {"FirstRemote", "first_remote"}};
 
   std::string s = "local";
-  if (suffix.count(name))
-    s = suffix[name];
+  if (suffix.count(name)) s = suffix[name];
   return "results/experiment_001_" + s + "_" + std::to_string(seed) + ".csv";
 }
 
@@ -85,7 +82,7 @@ void calculate_scenario_entropy() {
 
     // Shock term (rare but extreme events)
     double shock_prob = 0.05;
-    double shock_magnitude = 5.0; // burst amplification
+    double shock_magnitude = 5.0;  // burst amplification
     U_temporal += shock_prob * std::log(1.0 + shock_magnitude);
 
     // Amplify by intensity
@@ -131,7 +128,7 @@ int main(int argc, char **argv) {
     std::string arg = argv[i];
 
     if (!arg.empty() && arg[0] == '-') {
-      continue; // skip flags
+      continue;  // skip flags
     }
 
     if (positional_index == 0) {
@@ -174,13 +171,13 @@ int main(int argc, char **argv) {
   };
   std::vector<RSU::PtrRSU> rsus = {std::make_shared<RSU>()};
   for (auto r : rsus) {
-    r->battery = Battery(10000.0); // Set 10kJ battery
+    r->battery = Battery(10000.0);  // Set 10kJ battery
     r->report_metric(sim, "BatteryRemaining", r->battery.get_remaining());
   }
 
   for (auto v : vehicles) {
     v->set_rsus(rsus);
-    v->battery = Battery(10000.0); // Set 10kJ battery
+    v->battery = Battery(10000.0);  // Set 10kJ battery
     v->report_metric(sim, "BatteryRemaining", v->battery.get_remaining());
     sim.schedule<TaskGenerationEvent>(1.0, v, Config::TRAFFIC_LAMBDA);
   }

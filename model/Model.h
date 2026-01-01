@@ -1,33 +1,34 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include "Battery.h"
-#include "CPU.h"
-#include "EventType.h"
-#include "Task.h"
-#include "utils/IdManager.h"
 #include <functional>
 #include <memory>
 #include <queue>
 #include <string>
 #include <unordered_map>
 
-class Simulator; // Forward declaration
+#include "Battery.h"
+#include "CPU.h"
+#include "EventType.h"
+#include "Task.h"
+#include "utils/IdManager.h"
+
+class Simulator;  // Forward declaration
 
 class Model : public std::enable_shared_from_this<Model> {
-protected:
+ protected:
   int id = IdManager::next_id();
   std::queue<Task::PtrTask> processing_queue;
   Task::PtrTask processing_task = nullptr;
   size_t queue_size = 10;
   std::string tag = "";
 
-public:
+ public:
   using PtrModel = std::shared_ptr<Model>;
   using Map = std::unordered_map<EventType, std::function<void(Simulator &)>>;
 
   CPU cpu;
-  Battery battery; // Default infinite/zero
+  Battery battery;  // Default infinite/zero
   Map events;
 
   virtual ~Model() = default;
@@ -56,14 +57,14 @@ public:
   void OnProcessingStart(Simulator &sim);
   void OnProcessingComplete(Simulator &sim);
 
-protected:
+ protected:
   virtual void schedule_cpu(Simulator &sim);
   virtual void schedule_processing_complete(Simulator &sim);
   virtual void schedule_cpu_start_event(Simulator &sim);
 
-public:
+ public:
   double last_energy_update = 0.0;
   void update_energy(Simulator &sim);
 };
 
-#endif // MODEL_H
+#endif  // MODEL_H

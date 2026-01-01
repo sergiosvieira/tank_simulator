@@ -1,9 +1,11 @@
 #include "Vehicle.h"
+
+#include <sstream>
+
 #include "../events/DecisionEvent.h"
 #include "../logger.h"
 #include "core/EnergyManager.h"
 #include "core/TransferManager.h"
-#include <sstream>
 
 Vehicle::Vehicle(OffPolicy::PtrOffPolicy policy) : Model() {
   tag = policy->get_name();
@@ -63,7 +65,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
 
   if (result.decision_type == DecisionType::Local) {
     // Local processing: call Base implementation
-    report_metric(sim, "TransferTime", 0.0, "Local", tid); // No transfer time
+    report_metric(sim, "TransferTime", 0.0, "Local", tid);  // No transfer time
     bool accepted = this->accept_processing_task(sim, decision_task);
     if (!accepted)
       report_metric_for_node(sim, get_id(), "FullQueueError", 1.0, "Local",
@@ -79,7 +81,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
                                "FullQueueError", 1.0, "Remote", tid);
       } else {
         double tx_energy = EnergyManager::calculate_transmission_energy(
-            decision_task->get_data_size(), 100.0); // 100m dist
+            decision_task->get_data_size(), 100.0);  // 100m dist
 
         double bandwidth = TransferManager::DEFAULT_BANDWIDTH;
 
@@ -90,7 +92,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
           // run but random per task
           int chaos_seed = (int)decision_task->get_timestamp() * 1000 + tid;
           std::srand(chaos_seed);
-          double factor = 0.5 + (std::rand() % 50) / 100.0; // 0.5 to 1.0
+          double factor = 0.5 + (std::rand() % 50) / 100.0;  // 0.5 to 1.0
           bandwidth *= factor;
           report_metric(sim, "BandwidthDrop", factor, "Chaos", tid);
         }

@@ -1,12 +1,13 @@
 #ifndef VEHICLE_H
 #define VEHICLE_H
 
-#include "Model.h"
-#include "OffPolicy.h"
-#include "model/RSU.h"
 #include <armadillo>
 #include <queue>
 #include <vector>
+
+#include "Model.h"
+#include "OffPolicy.h"
+#include "model/RSU.h"
 
 class Vehicle : public Model {
   arma::vec pos = {};
@@ -16,7 +17,7 @@ class Vehicle : public Model {
   Task::PtrTask decision_task = nullptr;
   OffPolicy::PtrOffPolicy off_policy = nullptr;
 
-public:
+ public:
   using PtrVehicle = std::shared_ptr<Vehicle>;
   Vehicle(OffPolicy::PtrOffPolicy policy);
   void add_task_to_decision(Simulator &sim, Task::PtrTask task);
@@ -25,9 +26,9 @@ public:
   void set_rsus(const std::vector<RSU::PtrRSU> &rsus_);
   const std::vector<RSU::PtrRSU> get_rsus() const { return rsus; }
 
-protected:
+ protected:
   void schedule_decision(Simulator &sim);
   void schedule_decision_start_event(Simulator &sim);
 };
 
-#endif // VEHICLE_H
+#endif  // VEHICLE_H

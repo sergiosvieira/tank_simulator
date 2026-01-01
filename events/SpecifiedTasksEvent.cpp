@@ -1,8 +1,10 @@
 #include "SpecifiedTasksEvent.h"
+
+#include <sstream>
+
 #include "../logger.h"
 #include "../model/Task.h"
 #include "../utils/Rng.h"
-#include <sstream>
 
 size_t SpecifiedTasksEvent::index = 0;
 std::vector<Task::PtrTask> SpecifiedTasksEvent::tasks = {};
@@ -13,7 +15,7 @@ void SpecifiedTasksEvent::execute(Simulator &sim) {
       return;
     }
     Task::PtrTask task = tasks[index++];
-    task->set_origin_node_id(model->get_id()); // Set origin
+    task->set_origin_node_id(model->get_id());  // Set origin
     model->report_metric(sim, "TaskTotalCycles", task->total_cycles(), "",
                          task->get_id());
     std::stringstream ss;

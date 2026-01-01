@@ -1,13 +1,15 @@
 #include "TaskGenerationEvent.h"
+
+#include <sstream>
+
 #include "../core/ChaosManager.h"
 #include "../logger.h"
 #include "../model/Task.h"
 #include "../utils/Rng.h"
-#include <sstream>
 
 void TaskGenerationEvent::execute(Simulator &sim) {
   Task::PtrTask task = std::make_shared<Task>(sim);
-  task->set_origin_node_id(model->get_id()); // Set origin
+  task->set_origin_node_id(model->get_id());  // Set origin
   model->report_metric(sim, "TaskTotalCycles", task->total_cycles());
   std::stringstream ss;
   ss << "Task " << task->get_id() << " | Node " << model->get_id()

@@ -1,4 +1,5 @@
 #include "Task.h"
+
 #include "../core/ChaosManager.h"
 
 Task::Task(const Simulator &sim) {

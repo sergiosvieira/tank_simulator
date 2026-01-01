@@ -8,7 +8,7 @@
 #include "Scenario.h"
 
 class OracleScenario : public Scenario {
-public:
+ public:
   std::string name() const override { return "OracleOptimal"; }
 
   std::string description() const override {
@@ -54,7 +54,7 @@ public:
 };
 
 class StressTestScenario : public Scenario {
-public:
+ public:
   std::string name() const override { return "StressTest"; }
   std::string description() const override { return "Extreme stress test"; }
 
@@ -76,7 +76,7 @@ public:
 };
 
 class SimpleValidationScenario : public Scenario {
-public:
+ public:
   std::string name() const override { return "SimpleValidation"; }
   std::string description() const override {
     return "Simple scenario for validation";
@@ -94,7 +94,7 @@ public:
 };
 
 class HardcoreScenario : public Scenario {
-public:
+ public:
   std::string name() const override { return "Hardcore"; }
   std::string description() const override {
     return "EXTREME scenario designed to break simple policies";
@@ -154,7 +154,7 @@ public:
  * Key: Deadlines are realistic and decisions are TRULY optimal
  */
 class NightmareScenario : public Scenario {
-public:
+ public:
   std::string name() const override { return "Nightmare"; }
 
   std::string description() const override {
@@ -178,13 +178,13 @@ public:
     // FirstRemote will fail these!
     tasks.push_back(
         {1.1, 1500000, 30, 0.2,
-         ScriptedDecision::Local()}); // 1.5MB, 200ms deadline, tx=357ms!
+         ScriptedDecision::Local()});  // 1.5MB, 200ms deadline, tx=357ms!
     tasks.push_back(
         {1.15, 1300000, 35, 0.18,
-         ScriptedDecision::Local()}); // 1.3MB, 180ms deadline, tx=310ms!
+         ScriptedDecision::Local()});  // 1.3MB, 180ms deadline, tx=310ms!
     tasks.push_back(
         {1.2, 1100000, 40, 0.16,
-         ScriptedDecision::Local()}); // 1.1MB, 160ms deadline, tx=262ms!
+         ScriptedDecision::Local()});  // 1.1MB, 160ms deadline, tx=262ms!
 
     // ============================================
     // TRAP 2: Deceptive Density (t=2.0-2.4s)
@@ -193,13 +193,13 @@ public:
 
     // These LOOK small but are 300M+ cycles! MUST be remote!
     tasks.push_back(
-        {2.0, 80000, 4000, 0.25, ScriptedDecision::Remote(0)}); // 320M cycles!
+        {2.0, 80000, 4000, 0.25, ScriptedDecision::Remote(0)});  // 320M cycles!
+    tasks.push_back({2.05, 70000, 4500, 0.22,
+                     ScriptedDecision::Remote(0)});  // 315M cycles!
     tasks.push_back(
-        {2.05, 70000, 4500, 0.22, ScriptedDecision::Remote(0)}); // 315M cycles!
-    tasks.push_back(
-        {2.1, 90000, 3800, 0.28, ScriptedDecision::Remote(0)}); // 342M cycles!
-    tasks.push_back(
-        {2.15, 75000, 4200, 0.24, ScriptedDecision::Remote(0)}); // 315M cycles!
+        {2.1, 90000, 3800, 0.28, ScriptedDecision::Remote(0)});  // 342M cycles!
+    tasks.push_back({2.15, 75000, 4200, 0.24,
+                     ScriptedDecision::Remote(0)});  // 315M cycles!
 
     // Actually small - local
     tasks.push_back({2.2, 30000, 500, 0.25, ScriptedDecision::Local()});
@@ -207,9 +207,10 @@ public:
 
     // More big data traps
     tasks.push_back({2.3, 2000000, 25, 0.25,
-                     ScriptedDecision::Local()}); // 2MB! tx=476ms > deadline!
-    tasks.push_back({2.4, 1800000, 28, 0.22,
-                     ScriptedDecision::Local()}); // 1.8MB! tx=429ms > deadline!
+                     ScriptedDecision::Local()});  // 2MB! tx=476ms > deadline!
+    tasks.push_back(
+        {2.4, 1800000, 28, 0.22,
+         ScriptedDecision::Local()});  // 1.8MB! tx=429ms > deadline!
 
     // ============================================
     // TRAP 3: Burst Overload (t=3.0-3.25s)
@@ -240,11 +241,11 @@ public:
     // Now Intelligent will offload - but these NEED local!
     // Big data - transfer time exceeds deadline
     tasks.push_back({4.06, 900000, 45, 0.14,
-                     ScriptedDecision::Local()}); // tx=214ms > 140ms!
+                     ScriptedDecision::Local()});  // tx=214ms > 140ms!
     tasks.push_back({4.08, 850000, 50, 0.13,
-                     ScriptedDecision::Local()}); // tx=203ms > 130ms!
+                     ScriptedDecision::Local()});  // tx=203ms > 130ms!
     tasks.push_back({4.1, 950000, 42, 0.15,
-                     ScriptedDecision::Local()}); // tx=226ms > 150ms!
+                     ScriptedDecision::Local()});  // tx=226ms > 150ms!
 
     // ============================================
     // TRAP 5: Pattern Breaking (t=5.0-5.6s)
@@ -264,9 +265,9 @@ public:
 
     // More big data traps!
     tasks.push_back({5.4, 1600000, 32, 0.21,
-                     ScriptedDecision::Local()}); // 1.6MB! tx=381ms!
+                     ScriptedDecision::Local()});  // 1.6MB! tx=381ms!
     tasks.push_back({5.5, 1400000, 36, 0.19,
-                     ScriptedDecision::Local()}); // 1.4MB! tx=333ms!
+                     ScriptedDecision::Local()});  // 1.4MB! tx=333ms!
 
     // ============================================
     // TRAP 6: Final Gauntlet (t=7.0-7.4s)
@@ -275,16 +276,16 @@ public:
 
     tasks.push_back({7.0, 350000, 1200, 0.5, ScriptedDecision::Remote(0)});
     tasks.push_back({7.02, 1200000, 40, 0.17,
-                     ScriptedDecision::Local()}); // tx=286ms > 170ms!
+                     ScriptedDecision::Local()});  // tx=286ms > 170ms!
     tasks.push_back({7.04, 380000, 1250, 0.52, ScriptedDecision::Remote(0)});
     tasks.push_back({7.06, 1100000, 42, 0.16,
-                     ScriptedDecision::Local()}); // tx=262ms > 160ms!
+                     ScriptedDecision::Local()});  // tx=262ms > 160ms!
     tasks.push_back({7.08, 360000, 1180, 0.5, ScriptedDecision::Remote(0)});
     tasks.push_back({7.1, 1000000, 45, 0.15,
-                     ScriptedDecision::Local()}); // tx=238ms > 150ms!
+                     ScriptedDecision::Local()});  // tx=238ms > 150ms!
     tasks.push_back({7.12, 370000, 1220, 0.51, ScriptedDecision::Remote(0)});
     tasks.push_back({7.14, 900000, 48, 0.14,
-                     ScriptedDecision::Local()}); // tx=214ms > 140ms!
+                     ScriptedDecision::Local()});  // tx=214ms > 140ms!
 
     return tasks;
   }

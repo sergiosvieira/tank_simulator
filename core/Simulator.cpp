@@ -16,8 +16,7 @@ void Simulator::run(double sim_end_time) {
   while (!fel.empty()) {
     Event::PtrEvent event = fel.top();
     fel.pop();
-    if (event->get_time() > sim_end_time)
-      break;
+    if (event->get_time() > sim_end_time) break;
     current_time = event->get_time();
     event->execute(*this);
   }

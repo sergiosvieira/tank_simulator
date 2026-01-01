@@ -7,9 +7,10 @@
 class Simulator;
 
 class Event {
-protected:
+ protected:
   double time = 0.0;
-public:
+
+ public:
   using PtrEvent = std::shared_ptr<Event>;
   using VecPtrEvent = std::vector<PtrEvent>;
   Event(double time_) : time(time_) {}
@@ -25,4 +26,4 @@ struct EventPtrComparator {
   }
 };
 
-#endif // EVENT_H
+#endif  // EVENT_H

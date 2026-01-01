@@ -23,13 +23,14 @@
  *   ✔️ Shared across ALL parameters (structural correlation)
  */
 
-#include "Config.h"
 #include <algorithm>
 #include <random>
 #include <vector>
 
+#include "Config.h"
+
 class ChaosManager {
-public:
+ public:
   // AR(1) persistence coefficient (0 < ρ < 1)
   // Higher = more temporal correlation (more "sticky" chaos)
   static constexpr double RHO = 0.9;
@@ -96,7 +97,7 @@ public:
     return manager;
   }
 
-private:
+ private:
   ChaosManager() : chaos_engine_(42) {}
 
   // Internal RNG engine (separate from main simulation RNG)

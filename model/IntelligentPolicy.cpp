@@ -1,11 +1,11 @@
 #include "IntelligentPolicy.h"
+
 #include "../core/ChaosManager.h"
 #include "Model.h"
 
 DecisionResult IntelligentPolicy::decide(Task::PtrTask task,
                                          std::vector<RSU::PtrRSU> &rsus) {
-  if (!host)
-    return {DecisionType::Local, nullptr};
+  if (!host) return {DecisionType::Local, nullptr};
 
   size_t q_curr = host->get_current_queue_size();
 
@@ -41,7 +41,7 @@ DecisionResult IntelligentPolicy::decide(Task::PtrTask task,
   // Não espere a fila encher. Se tiver mais de 1 item, considere offload se
   // tiver RSU livre. Isso melhora a latência média (Gráfico B)
   if (q_curr > 1 && !rsus.empty()) {
-    return {DecisionType::Remote, rsus[0]}; // Ou Random, ou Best-Fit
+    return {DecisionType::Remote, rsus[0]};  // Ou Random, ou Best-Fit
   }
 
   return {DecisionType::Local, nullptr};
@@ -49,7 +49,7 @@ DecisionResult IntelligentPolicy::decide(Task::PtrTask task,
 
 double IntelligentPolicy::decision_time(Task::PtrTask task) {
   // Custo ligeiramente maior que Random pois faz cálculos (1ms a mais simulado)
-  double result = Rng::uniform(0.004, 0.006); // 4–6ms
+  double result = Rng::uniform(0.004, 0.006);  // 4–6ms
   if (Config::FIELD_TOTAL_CHAOS) {
     double drift = ChaosManager::instance().get_state();
     return Rng::pdrift(result, drift);

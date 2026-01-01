@@ -9,7 +9,7 @@ class CPU {
   CPUState current_state = CPUState::Idle;
   double freq_mhz = 1.18 * 1e9;
 
-public:
+ public:
   virtual double processing_time(Task::PtrTask task);
   void complete() { current_state = CPUState::Idle; }
   void start() { current_state = CPUState::Busy; }
@@ -19,4 +19,4 @@ public:
   void set_freq(double freq_mhz_) { freq_mhz = freq_mhz_; }
 };
 
-#endif // CPU_H
+#endif  // CPU_H

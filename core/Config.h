@@ -11,11 +11,11 @@ inline bool FIELD_TOTAL_CHAOS = false;
 // --------------------------------------------------
 // Chaos Intensity (temporal amplification)
 // --------------------------------------------------
-inline double CHAOS_INTENSITY = 1.0; // default: no amplification
+inline double CHAOS_INTENSITY = 1.0;  // default: no amplification
 
 inline void set_chaos_mode() {
   FIELD_TOTAL_CHAOS = true;
-  CHAOS_INTENSITY = 1.5; // moderate chaos (was 2.5, reduced for stability)
+  CHAOS_INTENSITY = 1.5;  // moderate chaos (was 2.5, reduced for stability)
 }
 
 // --------------------------------------------------
@@ -41,9 +41,9 @@ inline double TASK_MAX_DEADLINE = 0.5;
 // Uncertainty Reference Bounds (FIXED DESIGN SPACE)
 // --------------------------------------------------
 // Used for entropy calculation relative to a "maximum expected" design space
-static constexpr double REF_ARRIVAL_MAX_MEAN = 1.0 / 0.01; // 100s
-static constexpr double REF_SIZE_SPAN = 1000000.0;         // 1 MB
+static constexpr double REF_ARRIVAL_MAX_MEAN = 1.0 / 0.01;  // 100s
+static constexpr double REF_SIZE_SPAN = 1000000.0;          // 1 MB
 static constexpr double REF_DENSITY_STD_MAX = 1000.0;
 static constexpr double REF_DEADLINE_SPAN = 10.0;
 
-} // namespace Config
+}  // namespace Config

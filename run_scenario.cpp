@@ -19,6 +19,10 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include <iostream>
+#include <memory>
+#include <string>
+
 #include "core/ChaosManager.h"
 #include "core/Config.h"
 #include "core/Simulator.h"
@@ -30,9 +34,6 @@
 #include "model/Vehicle.h"
 #include "scenarios/OracleScenario.h"
 #include "utils/Rng.h"
-#include <iostream>
-#include <memory>
-#include <string>
 
 using std::cout, std::endl;
 
@@ -142,7 +143,7 @@ int main(int argc, char **argv) {
   }
 
   // Calculate duration based on last task
-  double duration = 20.0; // Default
+  double duration = 20.0;  // Default
   if (!tasks.empty()) {
     duration = tasks.back()->get_timestamp() + 10.0;
   }

@@ -1,10 +1,12 @@
 #include "Model.h"
+
+#include <cmath>
+#include <sstream>
+
 #include "../core/EnergyManager.h"
 #include "../events/CPUEvent.h"
 #include "../logger.h"
 #include "../metric.h"
-#include <cmath>
-#include <sstream>
 
 Model::Model() {
   events[EventType::OnProcessingStart] = [this](Simulator &sim) {
@@ -17,11 +19,10 @@ Model::Model() {
 
 void Model::update_energy(Simulator &sim) {
   double now = sim.now();
-  if (last_energy_update <= 0.0001)
-    last_energy_update = now; // Init
+  if (last_energy_update <= 0.0001) last_energy_update = now;  // Init
   double delta = now - last_energy_update;
   if (delta > 0) {
-    double idle_power = 2.0; // 2 Watts
+    double idle_power = 2.0;  // 2 Watts
     double energy = idle_power * delta;
     battery.consume(energy);
     // We don't report metric here to avoid recursion or log flood
@@ -32,8 +33,7 @@ void Model::update_energy(Simulator &sim) {
 void Model::report_metric(Simulator &sim, const std::string &name, double value,
                           const std::string &tag, int task_id, const char *file,
                           int line) {
-  if (name != "BatteryRemaining")
-    update_energy(sim);
+  if (name != "BatteryRemaining") update_energy(sim);
 
   MetricsHub::instance().record(sim.now(), get_id(), name, value, tag, task_id,
                                 file, line);
@@ -44,8 +44,7 @@ void Model::report_metric_for_node(Simulator &sim, int node_id,
                                    const std::string &name, double value,
                                    const std::string &tag, int task_id,
                                    const char *file, int line) {
-  if (node_id == get_id() && name != "BatteryRemaining")
-    update_energy(sim);
+  if (node_id == get_id() && name != "BatteryRemaining") update_energy(sim);
 
   MetricsHub::instance().record(sim.now(), node_id, name, value, tag, task_id,
                                 file, line);
@@ -91,8 +90,7 @@ void Model::OnProcessingComplete(Simulator &sim) {
   double energy = EnergyManager::calculate_processing_energy(
       cpu.get_freq(), processing_task->total_cycles());
   int origin_id = processing_task->get_origin_node_id();
-  if (origin_id == -1)
-    origin_id = this->get_id();
+  if (origin_id == -1) origin_id = this->get_id();
   bool was_offloaded = processing_task->get_offloaded();
   int tid = processing_task->get_id();
 

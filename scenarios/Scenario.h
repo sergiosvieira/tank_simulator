@@ -10,12 +10,13 @@
  * 3. Expected outcomes for validation
  */
 
-#include "../core/Simulator.h"
-#include "../model/DeterministicPolicy.h"
-#include "../model/Task.h"
 #include <functional>
 #include <string>
 #include <vector>
+
+#include "../core/Simulator.h"
+#include "../model/DeterministicPolicy.h"
+#include "../model/Task.h"
 
 struct ScenarioTask {
   double timestamp;
@@ -26,12 +27,15 @@ struct ScenarioTask {
 
   ScenarioTask(double ts, long size, long density, double dl,
                ScriptedDecision dec)
-      : timestamp(ts), size_bytes(size), density_cycles_bytes(density),
-        deadline(dl), decision(dec) {}
+      : timestamp(ts),
+        size_bytes(size),
+        density_cycles_bytes(density),
+        deadline(dl),
+        decision(dec) {}
 };
 
 class Scenario {
-public:
+ public:
   virtual ~Scenario() = default;
 
   /**

@@ -1,4 +1,5 @@
 #include "CPU.h"
+
 #include "../core/ChaosManager.h"
 
 double CPU::processing_time(Task::PtrTask task) {
