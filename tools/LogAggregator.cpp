@@ -25,7 +25,7 @@ struct SimulationStats {
   // Contadores
   long total_tasks = 0;
   long successes = 0;
-  long failures = 0;  // Overflow ou outros
+  long failures = 0; // Overflow ou outros
   long offload_local = 0;
   long offload_remote = 0;
 
@@ -35,17 +35,18 @@ struct SimulationStats {
 
   // Latência (armazenamos tudo para calcular percentis ou histograma depois)
   vector<double> latencies;
-  vector<double> transfer_times;  // New metric
+  vector<double> transfer_times; // New metric
 
   // Time Series (Binning)
   // Map: Time (int) -> pair<sum, count>
-  map<int, pair<double, int>> queue_series;
+  map<int, pair<double, int>> queue_series;      // Decision queue
+  map<int, pair<double, int>> queue_proc_series; // Processing queue
   map<int, pair<double, int>> battery_series;
-  map<int, int> failures_series;  // Time -> count
+  map<int, int> failures_series; // Time -> count
 };
 
 // --- CONFIGURAÇÃO ---
-const int TIME_BIN_SIZE = 1;  // 1 segundo por bin
+const int TIME_BIN_SIZE = 1; // 1 segundo por bin
 
 // --- FUNÇÃO DE PARSER (Uma por arquivo) ---
 SimulationStats parse_file(const fs::path &path) {
@@ -66,7 +67,8 @@ SimulationStats parse_file(const fs::path &path) {
     stats.policy = "Unknown";
 
   ifstream file(path);
-  if (!file.is_open()) return stats;
+  if (!file.is_open())
+    return stats;
 
   string line;
   // Ignorar header se existir
@@ -82,7 +84,8 @@ SimulationStats parse_file(const fs::path &path) {
   string segment, entity, metric, val_str, tag, dummy;
 
   while (getline(file, line)) {
-    if (line.empty()) continue;
+    if (line.empty())
+      continue;
 
     stringstream ss(line);
     // Formato: Time,EntityID,Metric,Value,Tag,TaskID,Location
@@ -103,13 +106,14 @@ SimulationStats parse_file(const fs::path &path) {
       // FILTROS E PARSING
       if (s_metric == "TaskSuccess") {
         // Value pode ser 1 ou 0
-        if (stod(s_value) > 0.5) stats.successes++;
+        if (stod(s_value) > 0.5)
+          stats.successes++;
         stats.total_tasks++;
       } else if (s_metric == "FullQueueError") {
         stats.failures++;
         int bin = (int)time_val;
         stats.failures_series[bin]++;
-        stats.total_tasks++;  // Conta como task tentada
+        stats.total_tasks++; // Conta como task tentada
       } else if (s_metric == "TaskLatency") {
         stats.latencies.push_back(stod(s_value));
       } else if (s_metric == "TransferTime") {
@@ -124,6 +128,10 @@ SimulationStats parse_file(const fs::path &path) {
         int bin = (int)time_val;
         stats.queue_series[bin].first += stod(s_value);
         stats.queue_series[bin].second++;
+      } else if (s_metric == "QueueSize_Processing") {
+        int bin = (int)time_val;
+        stats.queue_proc_series[bin].first += stod(s_value);
+        stats.queue_proc_series[bin].second++;
       } else if (s_metric == "BatteryRemaining") {
         int bin = (int)time_val;
         stats.battery_series[bin].first += stod(s_value);
@@ -146,7 +154,8 @@ SimulationStats parse_file(const fs::path &path) {
 int main(int argc, char *argv[]) {
   // 1. Identificar arquivos
   string results_dir = "results/";
-  if (argc > 1) results_dir = argv[1];
+  if (argc > 1)
+    results_dir = argv[1];
 
   vector<fs::path> files;
   try {
@@ -186,6 +195,7 @@ int main(int argc, char *argv[]) {
   // Para timeseries, precisamos agregar por policy primeiro
   // Policy -> TimeBin -> {SumValue, Count} (para tirar média global)
   map<string, map<int, pair<double, int>>> policy_queue_agg;
+  map<string, map<int, pair<double, int>>> policy_queue_proc_agg;
   map<string, map<int, pair<double, int>>> policy_batt_agg;
 
   // Para latências globais (para boxplot) - vamos samplear para não explodir
@@ -195,7 +205,8 @@ int main(int argc, char *argv[]) {
   int processed = 0;
   for (auto &fut : futures) {
     SimulationStats stats = fut.get();
-    if (stats.policy == "Unknown") continue;
+    if (stats.policy == "Unknown")
+      continue;
 
     // Calcular estatísticas locais
     double succ_rate = stats.total_tasks > 0
@@ -228,9 +239,13 @@ int main(int argc, char *argv[]) {
 
     // Agregar TimeSeries
     for (auto const &[bin, val] : stats.queue_series) {
-      policy_queue_agg[stats.policy][bin].first += val.first;  // Soma das somas
+      policy_queue_agg[stats.policy][bin].first += val.first; // Soma das somas
       policy_queue_agg[stats.policy][bin].second +=
-          val.second;  // Soma dos counts
+          val.second; // Soma dos counts
+    }
+    for (auto const &[bin, val] : stats.queue_proc_series) {
+      policy_queue_proc_agg[stats.policy][bin].first += val.first;
+      policy_queue_proc_agg[stats.policy][bin].second += val.second;
     }
     for (auto const &[bin, val] : stats.battery_series) {
       policy_batt_agg[stats.policy][bin].first += val.first;
@@ -244,28 +259,38 @@ int main(int argc, char *argv[]) {
   cout << endl << "Gerando TimeSeries..." << endl;
 
   ofstream out_ts("results/aggregated_timeseries.csv");
-  out_ts << "Policy,Time,AvgQueueSize,AvgBattery" << endl;
+  out_ts << "Policy,Time,AvgQueueSize,AvgQueueProc,AvgBattery" << endl;
 
   // Iterar por policies e bins
   for (auto const &[policy, bin_map] : policy_queue_agg) {
     // Encontrar range de tempo
     int max_time = bin_map.rbegin()->first;
     for (int t = 0; t <= max_time; t++) {
-      double avg_q = 0, avg_b = 0;
+      double avg_q = 0, avg_qp = 0, avg_b = 0;
 
-      // Queue
+      // Decision Queue
       if (bin_map.count(t)) {
         auto &p = bin_map.at(t);
-        if (p.second > 0) avg_q = p.first / p.second;
+        if (p.second > 0)
+          avg_q = p.first / p.second;
+      }
+
+      // Processing Queue
+      if (policy_queue_proc_agg[policy].count(t)) {
+        auto &p = policy_queue_proc_agg[policy].at(t);
+        if (p.second > 0)
+          avg_qp = p.first / p.second;
       }
 
       // Battery
       if (policy_batt_agg[policy].count(t)) {
         auto &p = policy_batt_agg[policy].at(t);
-        if (p.second > 0) avg_b = p.first / p.second;
+        if (p.second > 0)
+          avg_b = p.first / p.second;
       }
 
-      out_ts << policy << "," << t << "," << avg_q << "," << avg_b << endl;
+      out_ts << policy << "," << t << "," << avg_q << "," << avg_qp << ","
+             << avg_b << endl;
     }
   }
 

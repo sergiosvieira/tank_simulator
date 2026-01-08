@@ -86,7 +86,7 @@ void Vehicle::onDecisionComplete(Simulator &sim) {
         double bandwidth = TransferManager::DEFAULT_BANDWIDTH;
 
         // In CHAOS MODE, bandwidth fluctuates!
-        if (Config::getInstance().is_chaos_mode()) {
+        if (Config::FIELD_TOTAL_CHAOS) {
           // Random fluctuation between 50% and 100% of bandwidth
           // We use the task ID as seed addition to keep it deterministic per
           // run but random per task
